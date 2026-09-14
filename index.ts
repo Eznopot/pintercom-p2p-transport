@@ -8,6 +8,7 @@ import { IntercomClient, type SendResult } from "./broker/client.ts";
 import type { P2PIntercomClient } from "./p2p/client.ts";
 import { spawnBrokerIfNeeded } from "./broker/spawn.ts";
 import { SessionListOverlay } from "./ui/session-list.ts";
+import { createSessionAutocompleteProvider } from "./session-autocomplete.ts";
 import { MessageHistoryOverlay } from "./ui/message-history.ts";
 import { ComposeOverlay, type ComposeResult } from "./ui/compose.ts";
 import { InlineMessageComponent } from "./ui/inline-message.ts";
@@ -31,7 +32,7 @@ import {
 } from "./extension-api.ts";
 import { ReplyTracker } from "./reply-tracker.ts";
 import { realpathSync } from "node:fs";
-import { resolve as resolvePath } from "node:path";
+import { basename, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sameCwd } from "./cwd.ts";
 import { formatContextUsage } from "./format-context.ts";
@@ -46,7 +47,6 @@ const SUBAGENT_RESULT_INTERCOM_EVENT = "subagent:result-intercom";
 const SUBAGENT_RESULT_INTERCOM_DELIVERY_EVENT = "subagent:result-intercom-delivery";
 const INBOUND_MESSAGE_DEDUPE_MAX = 1000;
 const INBOUND_MESSAGE_DEDUPE_RETENTION_MS = 60 * 60 * 1000;
-const DEFAULT_UNNAMED_SESSION_ALIAS_PREFIX = "subagent-chat";
 const SUBAGENT_ORCHESTRATOR_TARGET_ENV = "PI_SUBAGENT_ORCHESTRATOR_TARGET";
 const SUBAGENT_ORCHESTRATOR_SESSION_ID_ENV = "PI_SUBAGENT_ORCHESTRATOR_SESSION_ID";
 const INTERCOM_SESSION_ID_ENV = "PI_INTERCOM_SESSION_ID";
@@ -511,18 +511,21 @@ function parseOutboxRequestPayload(payload: unknown): { ok: true; request: Inter
     },
   };
 }
-function resolveIntercomPresenceName(sessionName: string | undefined, sessionId: string): string {
-  const trimmedName = sessionName?.trim();
-  if (trimmedName) {
-    return trimmedName;
-  }
-  const normalizedSessionId = sessionId.startsWith("session-") ? sessionId.slice("session-".length) : sessionId;
-  return `${DEFAULT_UNNAMED_SESSION_ALIAS_PREFIX}-${normalizedSessionId.slice(0, 18)}`;
+export function normalizePresenceName(value: string, fallback: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || fallback;
 }
-function buildPresenceIdentity(pi: ExtensionAPI, sessionId: string): { name: string; runtimeFallbackAlias: boolean } {
+export function resolveIntercomPresenceName(sessionName: string | undefined, cwd: string, machine: string): string {
+  const trimmedName = sessionName?.trim();
+  if (trimmedName) return trimmedName;
+  return `${normalizePresenceName(basename(cwd), "project")}@${normalizePresenceName(machine, "machine")}`;
+}
+function logicalHostname(): string {
+  return process.env.PI_SSH_HOSTNAME?.trim() || hostname();
+}
+function buildPresenceIdentity(pi: ExtensionAPI, cwd: string): { name: string; runtimeFallbackAlias: boolean } {
   const sessionName = pi.getSessionName();
   return {
-    name: resolveIntercomPresenceName(sessionName, sessionId),
+    name: resolveIntercomPresenceName(sessionName, cwd, logicalHostname()),
     runtimeFallbackAlias: !sessionName?.trim(),
   };
 }
@@ -548,8 +551,8 @@ function formatSessionLabel(session: SessionInfo, duplicates: Set<string>): stri
     ? `${session.name} (${session.id.slice(0, 8)})`
     : session.name;
 }
-function formatSessionListRow(session: SessionInfo, currentCwd: string, isSelf: boolean, idPrefix: string): string {
-  const name = session.name || "Unnamed session";
+function formatSessionListRow(session: SessionInfo, currentCwd: string, isSelf: boolean, idPrefix: string, duplicates: Set<string>): string {
+  const name = session.name && duplicates.has(session.name.toLowerCase()) ? `${session.name} (${idPrefix})` : (session.name || session.id);
   const tags = [isSelf ? "self" : session.cwd === currentCwd ? "same cwd" : undefined, session.status]
     .filter((tag): tag is string => Boolean(tag));
   const suffix = tags.length ? ` [${tags.join(", ")}]` : "";
@@ -557,7 +560,7 @@ function formatSessionListRow(session: SessionInfo, currentCwd: string, isSelf: 
   const machineParts = [session.sshRemote ? `SSH ${session.sshRemote}` : undefined, session.hostname, session.os]
     .filter((part): part is string => Boolean(part));
   const machine = machineParts.length ? ` · ${machineParts.join(" · ")}` : "";
-  return `• ${name} (${idPrefix}) — ${session.cwd} (${session.model}${formatContextUsage(session)}${pane})${machine}${suffix}`;
+  return `• ${name} — ${session.cwd} (${session.model}${formatContextUsage(session)}${pane})${machine}${suffix}`;
 }
 function previewText(value: unknown, maxLength = 72): string | undefined {
   if (typeof value !== "string") {
@@ -895,7 +898,7 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
       throw new Error("Intercom runtime not initialized");
     }
 
-    const identity = buildPresenceIdentity(pi, currentIntercomSessionId ?? currentSessionId);
+    const identity = buildPresenceIdentity(pi, liveContext.cwd);
     const tmuxPane = currentTmuxPane();
     const sshRemote = process.env.PI_SSH_REMOTE?.trim();
     const sshHostname = process.env.PI_SSH_HOSTNAME?.trim();
@@ -943,21 +946,21 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
     if (!client || !getLiveContext()) {
       return;
     }
-    const identity = buildPresenceIdentity(pi, currentIntercomSessionId ?? sessionId);
+    const identity = buildPresenceIdentity(pi, getLiveContext()!.cwd);
     lastPresenceName = identity.name;
     lastPresenceRuntimeFallbackAlias = identity.runtimeFallbackAlias;
     client.updatePresence({ ...identity, status: currentStatus(), ...currentContextUsage() });
   }
   function startNamePoll(): void {
     clearNamePollTimer();
-    const initialIdentity = currentSessionId ? buildPresenceIdentity(pi, currentIntercomSessionId ?? currentSessionId) : null;
+    const initialIdentity = currentSessionId ? buildPresenceIdentity(pi, getLiveContext()!.cwd) : null;
     lastPresenceName = initialIdentity?.name ?? null;
     lastPresenceRuntimeFallbackAlias = initialIdentity?.runtimeFallbackAlias ?? null;
     namePollTimer = setInterval(() => {
       if (!currentSessionId || !getLiveContext()) {
         return;
       }
-      const identity = buildPresenceIdentity(pi, currentIntercomSessionId ?? currentSessionId);
+      const identity = buildPresenceIdentity(pi, getLiveContext()!.cwd);
       if (identity.name !== lastPresenceName || identity.runtimeFallbackAlias !== lastPresenceRuntimeFallbackAlias) {
         syncPresenceIdentity(currentSessionId);
       }
@@ -991,7 +994,7 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
     addTarget(currentIntercomSessionId);
     addTarget(activeClient?.sessionId);
     addTarget(pi.getSessionName());
-    if (currentSessionId) addTarget(buildPresenceIdentity(pi, currentIntercomSessionId ?? currentSessionId).name);
+    if (currentSessionId) addTarget(buildPresenceIdentity(pi, getLiveContext()!.cwd).name);
     return Boolean(resolvedTo && activeClient?.sessionId && resolvedTo === activeClient.sessionId)
       || targets.has(to.trim().toLowerCase());
   }
@@ -1612,7 +1615,7 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
     publishIntercomSessionId(currentIntercomSessionId);
     currentModel = ctx.model?.id ?? "unknown";
     sessionStartedAt = Date.now();
-    const initialPresenceIdentity = buildPresenceIdentity(pi, currentIntercomSessionId);
+    const initialPresenceIdentity = buildPresenceIdentity(pi, ctx.cwd);
     lastPresenceName = initialPresenceIdentity.name;
     lastPresenceRuntimeFallbackAlias = initialPresenceIdentity.runtimeFallbackAlias;
     agentRunning = false;
@@ -1731,10 +1734,13 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
   });
   const unsubscribeOutboxRequest = pi.events.on(INTERCOM_OUTBOX_REQUEST_EVENT, handleOutboxRequest);
   pi.on("session_start", (_event, ctx) => {
-    if (!config.enabled) {
-      return;
-    }
+    if (!config.enabled) return;
     startSessionRuntime(ctx);
+    ctx.ui?.addAutocompleteProvider?.((current) => createSessionAutocompleteProvider(current, async (signal) => {
+      if (signal.aborted || !client?.isConnected()) return undefined;
+      const sessions = await client.listSessions();
+      return signal.aborted ? undefined : { selfId: client.sessionId, sessions };
+    }));
   });
   
   pi.on("session_shutdown", async () => {
@@ -1823,7 +1829,7 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
     currentModel = event.model.id;
     if (client) {
       client.updatePresence({
-        ...buildPresenceIdentity(pi, currentIntercomSessionId ?? ctx.sessionManager.getSessionId()),
+        ...buildPresenceIdentity(pi, ctx.cwd),
         model: event.model.id,
         status: currentStatus(),
       });
@@ -2229,10 +2235,11 @@ Usage:
             }
 
             const prefixes = sessionIdPrefixes(sessions);
-            const currentSection = `**Current session:**\n${formatSessionListRow(currentSession, currentSession.cwd, true, prefixes.get(currentSession.id)!)}`;
+            const duplicates = duplicateSessionNames(sessions);
+            const currentSection = `**Current session:**\n${formatSessionListRow(currentSession, currentSession.cwd, true, prefixes.get(currentSession.id)!, duplicates)}`;
             const otherSection = otherSessions.length === 0
               ? "**Other sessions:**\nNo other sessions connected."
-              : `**Other sessions:**\n${otherSessions.map((session) => formatSessionListRow(session, currentSession.cwd, false, prefixes.get(session.id)!)).join("\n")}`;
+              : `**Other sessions:**\n${otherSessions.map((session) => formatSessionListRow(session, currentSession.cwd, false, prefixes.get(session.id)!, duplicates)).join("\n")}`;
 
             return {
               content: [{ type: "text", text: `${currentSection}\n\n${otherSection}` }],
@@ -2283,10 +2290,11 @@ Usage:
             }
 
             const prefixes = sessionIdPrefixes(sessions);
-            const currentSection = `**Current session:**\n${formatSessionListRow(currentSession, currentSession.cwd, true, prefixes.get(currentSession.id)!)}`;
+            const duplicates = duplicateSessionNames(sessions);
+            const currentSection = `**Current session:**\n${formatSessionListRow(currentSession, currentSession.cwd, true, prefixes.get(currentSession.id)!, duplicates)}`;
             const otherSection = otherSessions.length === 0
               ? `**Other sessions (cwd: ${filterCwd}):**\n${emptyNote}`
-              : `**Other sessions (cwd: ${filterCwd}):**\n${otherSessions.map((session) => formatSessionListRow(session, currentSession.cwd, false, prefixes.get(session.id)!)).join("\n")}`;
+              : `**Other sessions (cwd: ${filterCwd}):**\n${otherSessions.map((session) => formatSessionListRow(session, currentSession.cwd, false, prefixes.get(session.id)!, duplicates)).join("\n")}`;
 
             return {
               content: [{ type: "text", text: `${currentSection}\n\n${otherSection}` }],

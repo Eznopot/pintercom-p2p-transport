@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { EventEmitter, once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
 import { ReplyTracker } from "./reply-tracker.ts";
@@ -1068,7 +1068,7 @@ test("broker times out sockets that unregister and go idle", { concurrency: fals
   }
 });
 
-test("unnamed sessions use a collision-resistant runtime alias", { concurrency: false }, async () => {
+test("unnamed sessions use the normalized project and machine runtime alias", { concurrency: false }, async () => {
   const { planner, cleanup } = await setupClients();
   const { default: piIntercomExtension } = await import("./index.ts");
   const firstSessionId = "019fe418-248e-7447-9379-fdce6e91dcba";
@@ -1083,11 +1083,12 @@ test("unnamed sessions use a collision-resistant runtime alias", { concurrency: 
     await secondHarness.emitLifecycle("session_start");
     const first = await waitForSessionId(planner, firstSessionId);
     const second = await waitForSessionId(planner, secondSessionId);
-    assert.equal(first.name, "subagent-chat-019fe418-248e-7447");
-    assert.equal(second.name, "subagent-chat-019fe418-248e-7abc");
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const fallbackName = `${normalize(path.basename(repoDir))}@${normalize(hostname())}`;
+    assert.equal(first.name, fallbackName);
+    assert.equal(second.name, fallbackName);
     assert.equal(first.runtimeFallbackAlias, true);
     assert.equal(second.runtimeFallbackAlias, true);
-    assert.notEqual(first.name, second.name);
   } finally {
     await firstHarness.emitLifecycle("session_shutdown");
     await secondHarness.emitLifecycle("session_shutdown");

@@ -167,6 +167,8 @@ Targets resolve in this order:
 2. Unique case-insensitive session name.
 3. Unique session ID prefix.
 
+An explicit Pi `/name` is advertised unchanged. Otherwise the runtime-only name is the normalized `<project>@<machine>` (project-directory basename and logical hostname, preferring `PI_SSH_HOSTNAME`). Duplicate runtime names remain valid but are displayed with a short session ID; unique names omit it. In the prompt editor, type `@` at the start of a line or after whitespace to autocomplete live peers by name, cwd, hostname, or short ID.
+
 The roster includes live metadata such as working directory, model, status, context usage, hostname, and operating system when provided by the peer. A locally hosted SSH agent can set `PI_SSH_REMOTE`, `PI_SSH_HOSTNAME`, and `PI_SSH_SYSTEM`; its authenticated hello then marks it as `SSH <remote>` and lists the remote device identity rather than the controller machine.
 
 ## Network Requirements

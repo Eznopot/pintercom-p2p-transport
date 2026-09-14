@@ -39,12 +39,12 @@ function sessionMachine(session: SessionInfo): string {
     .join(" • ");
 }
 
-function sessionTitle(session: SessionInfo, options?: { self?: boolean; sameCwd?: boolean }): string {
+function sessionTitle(session: SessionInfo, duplicate: boolean, options?: { self?: boolean; sameCwd?: boolean }): string {
   const name = session.name || "Unnamed session";
   const tags = [options?.self ? "self" : undefined, options?.sameCwd ? "same cwd" : undefined]
     .filter((tag): tag is string => Boolean(tag));
   const suffix = tags.length ? ` [${tags.join(", ")}]` : "";
-  return `${name} (${shortSessionId(session.id)})${suffix}`;
+  return `${name}${duplicate ? ` (${shortSessionId(session.id)})` : ""}${suffix}`;
 }
 
 export class SessionListOverlay implements Component {
@@ -125,7 +125,9 @@ export class SessionListOverlay implements Component {
     lines.push(row(this.theme.bold(" Current Session")));
     lines.push(border(`├${"─".repeat(contentWidth)}┤`));
     lines.push(row());
-    lines.push(row(`  ${this.theme.fg("dim", sessionTitle(this.currentSession, { self: true }))}`));
+    const names = [this.currentSession, ...this.sessions].map((session) => session.name?.toLowerCase());
+    const duplicate = (session: SessionInfo) => Boolean(session.name && names.indexOf(session.name.toLowerCase()) !== names.lastIndexOf(session.name.toLowerCase()));
+    lines.push(row(`  ${this.theme.fg("dim", sessionTitle(this.currentSession, duplicate(this.currentSession), { self: true }))}`));
     lines.push(row(`  ${this.theme.fg("dim", `${middleTruncate(this.currentSession.cwd, Math.max(8, contentWidth - 4))} • ${[this.currentSession.model, sessionMachine(this.currentSession)].filter(Boolean).join(" • ")}`)}`));
     lines.push(row());
     lines.push(border(`├${"─".repeat(contentWidth)}┤`));
@@ -146,7 +148,7 @@ export class SessionListOverlay implements Component {
         const isSelected = index === this.selectedIndex;
         const sameCwd = session.cwd === this.currentSession.cwd;
         const prefix = isSelected ? this.theme.fg("accent", "→ ") : "  ";
-        const title = sessionTitle(session, { sameCwd });
+        const title = sessionTitle(session, duplicate(session), { sameCwd });
         const pathText = `${middleTruncate(session.cwd, Math.max(8, contentWidth - 4))} • ${[session.model, sessionMachine(session)].filter(Boolean).join(" • ")}`;
 
         lines.push(row(`${prefix}${isSelected ? this.theme.fg("accent", title) : title}`));

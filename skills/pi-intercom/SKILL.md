@@ -336,13 +336,15 @@ intercom({
 
 ### Name sessions meaningfully
 
-Use `/name` so others can target you easily:
+Use `/name` so others can target you easily; explicit names are preserved. Unnamed sessions use a runtime-only normalized `<project>@<machine>` name. Duplicate names are shown with a short ID.
 
 ```
 /name api-worker
 /name frontend-dev
 /name planner
 ```
+
+In the prompt editor, type `@` at the start of a line or after whitespace to autocomplete live peers by name, cwd, hostname, or short ID. Unique peers insert `@name`; duplicate names insert `@short-id`.
 
 ## Error Handling
 
