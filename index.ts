@@ -2158,7 +2158,7 @@ Usage:
   intercom({ action: "send", cwd: "/path", openProjectPaneIfMissing: true, message: "..." }) → Open a visible Herdr project pane when needed, then send
   intercom({ action: "ask", to: "name-or-id", message: "..." })   → Ask and wait for reply
   intercom({ action: "cancel", messageId: "..." })                 → Request cancellation of a sent message
-  intercom({ action: "reply", message: "..." })                      → Reply to the active/single pending ask
+  intercom({ action: "reply", message: "..." })                      → Reply to the active inbound message or single pending ask
   intercom({ action: "pending" })                                      → List unresolved inbound asks
   intercom({ action: "status" })                  → Show connection status`,
     promptSnippet:
@@ -2169,7 +2169,7 @@ Usage:
         description: "Action: 'list', 'list-cwd', 'send', 'ask', 'reply', 'pending', 'status', or 'cancel'",
       }),
       to: Type.Optional(Type.String({
-        description: "Target session: name, full session ID, or the short id shown in parentheses by 'list' (a leading ID prefix resolves). For send/ask with cwd, omit to target the sole live session in that cwd or the newly opened project-pane session. For 'reply', disambiguates the pending ask.",
+        description: "Target session: name, full session ID, or the short id shown in parentheses by 'list' (a leading ID prefix resolves). For send/ask with cwd, omit to target the sole live session in that cwd or the newly opened project-pane session. For 'reply', disambiguates the inbound message.",
       })),
       message: Type.Optional(Type.String({
         description: "Message to send (for 'send', 'ask', or 'reply' action)",

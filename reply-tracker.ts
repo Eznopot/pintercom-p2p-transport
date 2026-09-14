@@ -82,12 +82,13 @@ export class ReplyTracker {
     this.pruneExpired(now);
 
     if (options.replyTo) {
-      const target = this.pendingAsks.get(options.replyTo);
+      const target = this.pendingAsks.get(options.replyTo)
+        ?? (this.currentTurnContext?.message.id === options.replyTo ? this.currentTurnContext : undefined);
       if (!target) {
-        throw new Error(`No pending ask with message ID "${options.replyTo}"`);
+        throw new Error(`No active message with ID "${options.replyTo}"`);
       }
       if (options.to && !matchesPendingSender(target, options.to)) {
-        throw new Error(`Pending ask "${options.replyTo}" is not from "${options.to}"`);
+        throw new Error(`Message "${options.replyTo}" is not from "${options.to}"`);
       }
       return target;
     }

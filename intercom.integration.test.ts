@@ -966,16 +966,34 @@ test("broker owns local trust metadata instead of trusting registration payloads
   }
 });
 
+test("broker accepts replies to received ordinary messages", { concurrency: false }, async () => {
+  const { planner, orchestrator, cleanup } = await setupClients();
+
+  try {
+    const received = once(orchestrator, "message") as Promise<[SessionInfo, Message]>;
+    const sent = await planner.send(orchestrator.sessionId!, { messageId: "ordinary-message", text: "Ping" });
+    assert.equal(sent.delivered, true);
+    await received;
+
+    const reply = once(planner, "message") as Promise<[SessionInfo, Message]>;
+    const result = await orchestrator.send(planner.sessionId!, { text: "Pong", replyTo: "ordinary-message" });
+    assert.equal(result.delivered, true);
+    assert.equal((await reply)[1].replyTo, "ordinary-message");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("broker rejects unknown replyTo values instead of delivering forged replies", { concurrency: false }, async () => {
   const { planner, orchestrator, cleanup } = await setupClients();
 
   try {
     const result = await planner.send(orchestrator.sessionId!, {
       text: "This is not a real reply.",
-      replyTo: "not-a-pending-ask",
+      replyTo: "not-a-received-message",
     });
     assert.equal(result.delivered, false);
-    assert.match(result.reason ?? "", /pending ask/i);
+    assert.match(result.reason ?? "", /received message/i);
   } finally {
     await cleanup();
   }

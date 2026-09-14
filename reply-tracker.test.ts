@@ -38,6 +38,19 @@ test("reply resolves from current triggered message context", () => {
   assert.equal(tracker.resolveReplyTarget({}, 1002).from.id, "planner-id");
 });
 
+test("explicit replyTo resolves the current ordinary message", () => {
+  const tracker = new ReplyTracker();
+  const context = tracker.recordIncomingMessage(
+    createSession("planner-id", "planner"),
+    createMessage("send-1", "FYI", false),
+    1000,
+  );
+  tracker.queueTurnContext(context);
+  tracker.beginTurn(1001);
+
+  assert.equal(tracker.resolveReplyTarget({ replyTo: "send-1" }, 1002).message.id, "send-1");
+});
+
 test("reply resolves from single pending ask without current turn context", () => {
   const tracker = new ReplyTracker();
   tracker.recordIncomingMessage(createSession("planner-id", "planner"), createMessage("ask-1", "Need a decision"), 1000);

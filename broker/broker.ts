@@ -624,6 +624,7 @@ class IntercomBroker {
         this.pruneAskEdges();
         this.pruneMessageReceiptRoutes(brokerReceivedAt);
         const replyEdge = message.replyTo ? this.askEdges.get(message.replyTo) : undefined;
+        const replyRoute = message.replyTo ? this.messageReceiptRoutes.get(message.replyTo) : undefined;
 
         const hasTargetId = clientMessage.targetId !== undefined;
         const hasTargetEpoch = clientMessage.targetEpoch !== undefined;
@@ -658,11 +659,11 @@ class IntercomBroker {
 
         const targets = this.findSessions(clientMessage.to, fromSession.scopeId);
         if (targets.length === 1) {
-          if (message.replyTo && !replyEdge) {
-            this.writeDeliveryFailure(socket, message.id, "Reply target does not match a pending ask", "E_REPLY_TARGET");
+          const target = targets[0];
+          if (message.replyTo && !replyEdge && (replyRoute?.to !== currentKey || replyRoute.from !== target.key)) {
+            this.writeDeliveryFailure(socket, message.id, "Reply target does not match a received message", "E_REPLY_TARGET");
             break;
           }
-          const target = targets[0];
           const fingerprint = this.deliveryFingerprint(message, target.info.id);
           if (this.replayOrReject(socket, currentKey, message.id, fingerprint)) {
             break;
@@ -734,7 +735,7 @@ class IntercomBroker {
         const disconnectedTargets = this.findDisconnectedSessions(clientMessage.to, fromSession.scopeId);
         if (disconnectedTargets.length === 1) {
           if (message.replyTo && !replyEdge) {
-            this.writeDeliveryFailure(socket, message.id, "Reply target does not match a pending ask", "E_REPLY_TARGET");
+            this.writeDeliveryFailure(socket, message.id, "Reply target does not match a received message", "E_REPLY_TARGET");
             break;
           }
           const disconnectedTarget = disconnectedTargets[0]!;
