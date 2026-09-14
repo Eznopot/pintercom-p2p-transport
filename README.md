@@ -96,6 +96,7 @@ The shared key and scope are both used to derive the mDNS service name. Peers wi
 | Variable | Description |
 |----------|-------------|
 | `PI_INTERCOM_P2P_KEY` | Required shared secret, minimum 16 characters. |
+| `PI_INTERCOM_P2P_TIMEOUT_MS` | Positive P2P request timeout in milliseconds. Defaults to 30 seconds. |
 | `PI_INTERCOM_SCOPE_ID` | Optional discovery and routing boundary. Must match across peers. |
 | `PI_INTERCOM_ASK_TIMEOUT_MS` | Ask/reply timeout in milliseconds. Defaults to 1 hour. |
 | `PI_INTERCOM_STABLE_ID` | Optional process-specific stable session ID; takes precedence over `stableId`. |

@@ -93,6 +93,11 @@ function getP2PKey(): string {
   return key;
 }
 
+function getP2PRequestTimeoutMs(): number {
+  const timeout = Number(process.env.PI_INTERCOM_P2P_TIMEOUT_MS);
+  return Number.isFinite(timeout) && timeout > 0 ? timeout : 30_000;
+}
+
 function serviceTag(key: string, scopeId: string | undefined): string {
   const suffix = createHash("sha256").update(`${key}\0${scopeId ?? ""}`).digest("hex").slice(0, 12);
   return `_pi-intercom-${suffix}._udp.local`;
@@ -346,13 +351,28 @@ export class P2PIntercomClient extends EventEmitter {
   private async request(peerId: PeerId, envelope: PeerEnvelope): Promise<PeerResponse> {
     const node = this.node;
     if (!node) throw new Error("Not connected");
-    const stream = await node.dialProtocol(peerId, PROTOCOL);
-    await writeJson(stream, this.sign(envelope));
-    const response = this.verify(await readJson(stream));
-    if (!response || typeof response !== "object" || typeof (response as { ok?: unknown }).ok !== "boolean") {
-      throw new Error("Invalid p2p response");
+    const timeoutMs = getP2PRequestTimeoutMs();
+    const controller = new AbortController();
+    let stream: Stream | undefined;
+    const timer = setTimeout(() => {
+      const error = new Error(`P2P ${envelope.type} request timed out after ${timeoutMs}ms`);
+      stream?.abort(error);
+      controller.abort(error);
+    }, timeoutMs);
+    try {
+      stream = await node.dialProtocol(peerId, PROTOCOL, { signal: controller.signal });
+      await writeJson(stream, this.sign(envelope));
+      const response = this.verify(await readJson(stream));
+      if (!response || typeof response !== "object" || typeof (response as { ok?: unknown }).ok !== "boolean") {
+        throw new Error("Invalid p2p response");
+      }
+      return response as PeerResponse;
+    } catch (error) {
+      stream?.abort(toError(error));
+      throw error;
+    } finally {
+      clearTimeout(timer);
     }
-    return response as PeerResponse;
   }
 
   private async handleStream(stream: Stream, connection: Connection): Promise<void> {
@@ -422,6 +442,12 @@ export class P2PIntercomClient extends EventEmitter {
   private removePeer(peerId: PeerId): void {
     const peerKey = peerId.toString();
     const sessionId = this.sessionByPeer.get(peerKey);
+    for (const [messageId, route] of this.inboundRoutes) {
+      if (route.equals(peerId)) this.inboundRoutes.delete(messageId);
+    }
+    for (const [messageId, route] of this.outboundRoutes) {
+      if (route.equals(peerId)) this.outboundRoutes.delete(messageId);
+    }
     if (!sessionId) return;
     this.sessionByPeer.delete(peerKey);
     this.peers.delete(sessionId);
