@@ -1,4 +1,5 @@
 import type { AutocompleteProvider, AutocompleteSuggestions } from "@earendil-works/pi-coding-agent";
+import { fuzzyFilter } from "@earendil-works/pi-tui";
 import type { SessionInfo } from "./types.ts";
 
 export function createSessionAutocompleteProvider(
@@ -20,11 +21,6 @@ export function createSessionAutocompleteProvider(
       if (options.signal.aborted || !live) return current.getSuggestions(lines, line, col, options);
 
       const query = (match[1] ?? "").toLowerCase();
-      const fuzzyMatch = (value: string | undefined) => {
-        let index = 0;
-        for (const char of value?.toLowerCase() ?? "") if (char === query[index]) index += 1;
-        return index === query.length;
-      };
       const peers = live.sessions.filter((session) => session.id !== live.selfId);
       const duplicateNames = new Set(live.sessions
         .map((session) => session.name?.toLowerCase())
@@ -35,9 +31,10 @@ export function createSessionAutocompleteProvider(
         while (live.sessions.some((other) => other.id !== session.id && other.id.startsWith(session.id.slice(0, length)))) length += 1;
         return session.id.slice(0, length);
       };
-      const items = peers.filter((session) => [session.name, session.cwd, session.hostname, shortId(session)]
-        .some(fuzzyMatch))
-        .map((session) => {
+      const matches = query
+        ? fuzzyFilter(peers, query, (session) => [session.name, session.cwd, session.hostname, shortId(session)].filter(Boolean).join(" "))
+        : peers;
+      const items = matches.map((session) => {
           const duplicate = Boolean(session.name && duplicateNames.has(session.name.toLowerCase()));
           const target = duplicate ? shortId(session) : (session.name || shortId(session));
           return { value: `@${target}`, label: `@${target}`, description: session.cwd };
