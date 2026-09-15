@@ -4,6 +4,9 @@ All notable changes to the `pi-intercom` extension will be documented in this fi
 
 ## [Unreleased]
 
+### Added
+- P2P sessions can stream files or folders with `send`, `ask`, and `reply` messages through the new `paths` parameter. Transfers are authenticated, size-limited, hash-verified, and committed to the receiver inbox before instructions are delivered.
+
 ## [0.12.0] - 2026-08-22
 
 ### Highlights

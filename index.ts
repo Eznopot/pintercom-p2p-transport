@@ -39,6 +39,20 @@ import { formatContextUsage } from "./format-context.ts";
 import { openProjectPane, resolveTargetInCwd, waitForProjectSession, type ProjectPaneLaunch } from "./project-agent.ts";
 
 type ActiveIntercomClient = IntercomClient | P2PIntercomClient;
+type OutgoingMessageOptions = Parameters<IntercomClient["send"]>[1];
+
+function sendIntercomMessage(
+  client: ActiveIntercomClient,
+  to: string,
+  options: OutgoingMessageOptions,
+  paths: string[] | undefined,
+  cwd: string,
+  signal?: AbortSignal,
+) {
+  if (!paths?.length) return client.send(to, options);
+  if (!("sendTransfer" in client)) throw new Error("File and folder transfer is only supported by the p2p transport");
+  return client.sendTransfer(to, { ...options, paths, cwd, signal });
+}
 
 const INTERCOM_TOOL_NAME = "intercom";
 const INTERCOM_SKILL_PATH = realpathSync(fileURLToPath(new URL("./skills/pi-intercom/SKILL.md", import.meta.url)));
@@ -2158,6 +2172,7 @@ Usage:
   intercom({ action: "list-cwd" })                → List sessions in the current working directory
   intercom({ action: "list-cwd", cwd: "/path" })  → List sessions in a specific directory
   intercom({ action: "send", to: "name-or-id", message: "..." })  → Send message
+  intercom({ action: "send", to: "name-or-id", message: "...", paths: ["file-or-folder"] }) → Stream files/folders over P2P with instructions
   intercom({ action: "send", cwd: "/path", openProjectPaneIfMissing: true, message: "..." }) → Open a visible Herdr project pane when needed, then send
   intercom({ action: "ask", to: "name-or-id", message: "..." })   → Ask and wait for reply
   intercom({ action: "cancel", messageId: "..." })                 → Request cancellation of a sent message
@@ -2183,6 +2198,9 @@ Usage:
         content: Type.String(),
         language: Type.Optional(Type.String()),
       }))),
+      paths: Type.Optional(Type.Array(Type.String(), {
+        description: "Files or folders to stream with the message over the p2p transport. Relative paths resolve from the sending session cwd.",
+      })),
       replyTo: Type.Optional(Type.String({
         description: "Message ID to reply to (for threading or responding to an 'ask')",
       })),
@@ -2220,7 +2238,7 @@ Usage:
 
       syncPresenceIdentity(ctx.sessionManager.getSessionId());
 
-      const { action, to, message, attachments, replyTo, messageId, supersedes, retryOf, cwd, openProjectPaneIfMissing, focus } = params;
+      const { action, to, message, attachments, paths, replyTo, messageId, supersedes, retryOf, cwd, openProjectPaneIfMissing, focus } = params;
 
       switch (action) {
         case "list": {
@@ -2392,13 +2410,13 @@ Usage:
                 };
               }
             }
-            const result = await connectedClient.send(sendTo, {
+            const result = await sendIntercomMessage(connectedClient, sendTo, {
               text: message,
               attachments,
               replyTo: effectiveReplyTo,
               supersedes,
               retryOf,
-            });
+            }, paths, ctx.cwd, _signal);
             if (!result.delivered) {
               const errorText = result.reason ?? "Session may not exist or has disconnected.";
               return {
@@ -2504,7 +2522,7 @@ Usage:
             questionId = randomUUID();
             replyPromise = waitForReply(sendTo, questionId, _signal, () => connectedClient.cancelAsk(questionId!), () => latestDeliveryState(questionId, deliveryState));
             replyPromise.catch(() => undefined);
-            const sendResult = await connectedClient.send(sendTo, {
+            const sendResult = await sendIntercomMessage(connectedClient, sendTo, {
               messageId: questionId,
               text: message,
               attachments,
@@ -2512,7 +2530,7 @@ Usage:
               expectsReply: true,
               supersedes,
               retryOf,
-            });
+            }, paths, ctx.cwd, _signal);
 
             deliveryState = sendResult.delivery;
             if (!sendResult.delivered) {
@@ -2583,11 +2601,11 @@ Usage:
                 details: { error: true },
               };
             }
-            const result = await connectedClient.send(target.from.id, {
+            const result = await sendIntercomMessage(connectedClient, target.from.id, {
               text: message,
               attachments,
               replyTo: target.message.id,
-            });
+            }, paths, ctx.cwd, _signal);
             if (!result.delivered) {
               const errorText = result.reason ?? "Session may not exist or has disconnected.";
               if (result.reason === "Session not found") {

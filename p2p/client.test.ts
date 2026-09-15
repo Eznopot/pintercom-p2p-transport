@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { confirmP2PListenAddresses, p2pMdnsAnswers, P2PIntercomClient } from "./client.ts";
 import type { SessionRegistration } from "../types.ts";
 
@@ -82,6 +85,49 @@ test("p2p clients exchange authenticated messages over an encrypted libp2p strea
     await Promise.allSettled([sender.disconnect(), receiver.disconnect()]);
     if (previousKey === undefined) delete process.env.PI_INTERCOM_P2P_KEY;
     else process.env.PI_INTERCOM_P2P_KEY = previousKey;
+  }
+});
+
+test("p2p clients stream a folder and deliver its instruction message after commit", async () => {
+  const previousKey = process.env.PI_INTERCOM_P2P_KEY;
+  const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+  const root = await mkdtemp(join(tmpdir(), "pi-intercom-p2p-transfer-"));
+  process.env.PI_INTERCOM_P2P_KEY = "test-shared-key-1234";
+  process.env.PI_CODING_AGENT_DIR = join(root, "agent");
+  const sender = new P2PIntercomClient();
+  const receiver = new P2PIntercomClient();
+
+  try {
+    await mkdir(join(root, "source", "folder"), { recursive: true });
+    await writeFile(join(root, "source", "folder", "hello.bin"), Uint8Array.from([0, 1, 2, 255]));
+    await sender.connect(registration("sender"), "sender-id");
+    await receiver.connect(registration("receiver"), "receiver-id");
+    await wirePair(sender, receiver);
+
+    const received = new Promise<{ text: string; transferPath: string }>((resolve) => {
+      receiver.once("message", (_from, message) => {
+        const attachment = message.content.attachments?.at(-1);
+        const transferPath = attachment?.content.match(/Saved under ([^\n]+)/)?.[1] ?? "";
+        resolve({ text: message.content.text, transferPath });
+      });
+    });
+    const result = await sender.sendTransfer("receiver-id", {
+      text: "Inspect this folder",
+      paths: ["folder"],
+      cwd: join(root, "source"),
+    });
+    const message = await received;
+
+    assert.equal(result.delivered, true);
+    assert.equal(message.text, "Inspect this folder");
+    assert.deepEqual(await readFile(join(message.transferPath, "folder", "hello.bin")), Buffer.from([0, 1, 2, 255]));
+  } finally {
+    await Promise.allSettled([sender.disconnect(), receiver.disconnect()]);
+    await rm(root, { recursive: true, force: true });
+    if (previousKey === undefined) delete process.env.PI_INTERCOM_P2P_KEY;
+    else process.env.PI_INTERCOM_P2P_KEY = previousKey;
+    if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
   }
 });
 

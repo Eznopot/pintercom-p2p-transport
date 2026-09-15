@@ -106,9 +106,9 @@ workers.forEach(w =>
 );
 ```
 
-### Pattern 5: Send with Attachments
+### Pattern 5: Send Inline Attachments
 
-Share code snippets, files, or context:
+Share small code snippets or context:
 
 ```typescript
 intercom({
@@ -126,6 +126,19 @@ intercom({
   }]
 })
 ```
+
+When both sessions use the P2P transport, stream actual files or folders with the instruction message by passing paths relative to the sending session cwd:
+
+```typescript
+intercom({
+  action: "send",
+  to: "worker",
+  message: "Review this patch and run its checks.",
+  paths: ["./patch.diff", "./fixtures"]
+})
+```
+
+The receiver gets the protected inbox path after the transfer is complete. Symlinks and special files are rejected; `paths` is not supported by the broker transport.
 
 ### Pattern 6: Cross-Codebase Peer Messages
 

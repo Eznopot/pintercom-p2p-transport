@@ -100,6 +100,7 @@ The shared key and scope are both used to derive the mDNS service name. Peers wi
 | `PI_INTERCOM_SCOPE_ID` | Optional discovery and routing boundary. Must match across peers. |
 | `PI_INTERCOM_ASK_TIMEOUT_MS` | Ask/reply timeout in milliseconds. Defaults to 1 hour. |
 | `PI_INTERCOM_STABLE_ID` | Optional process-specific stable session ID; takes precedence over `stableId`. |
+| `PI_INTERCOM_P2P_MAX_TRANSFER_BYTES` | Maximum received P2P file transfer size. Defaults to 512 MiB. |
 | `PI_CODING_AGENT_DIR` | Moves the intercom config/runtime directory from `~/.pi/agent`. |
 
 Environment variables are read when the extension starts. Restart affected Pi sessions after changing them.
@@ -133,6 +134,7 @@ sequenceDiagram
     A->>B: HMAC-authenticated hello
     B-->>A: HMAC-authenticated session info
     A->>B: Direct messages, presence, receipts, controls
+    A->>B: Streamed file/folder transfer + instruction message
 ```
 
 ### Discovery
@@ -152,7 +154,8 @@ The key itself and the scope value are not advertised in plaintext. The derived 
 - Yamux multiplexes streams over it.
 - Every request, response, presence update, receipt, and control envelope is authenticated with HMAC-SHA-256 using `PI_INTERCOM_P2P_KEY`.
 - MAC comparison uses constant-time verification.
-- Protocol payloads are capped at 1 MiB.
+- Message protocol payloads are capped at 1 MiB.
+- File data uses a separate length-prefixed, backpressured stream and is never buffered as one message.
 - Remote sessions are always marked `trustedLocal: false`.
 
 Noise encryption and shared-key authentication serve different purposes: Noise protects transport confidentiality, while the HMAC proves that the sender possesses the configured intercom key.
@@ -170,6 +173,23 @@ Targets resolve in this order:
 An explicit Pi `/name` is advertised unchanged. Otherwise the runtime-only name is the normalized `<project>@<machine>` (project-directory basename and logical hostname, preferring `PI_SSH_HOSTNAME`). Duplicate runtime names remain valid but are displayed with a short session ID; unique names omit it. In the prompt editor, type `@@` at the start of a line or after whitespace to autocomplete live peers by name, cwd, hostname, or short ID.
 
 The roster includes live metadata such as working directory, model, status, context usage, hostname, and operating system when provided by the peer. A locally hosted SSH agent can set `PI_SSH_REMOTE`, `PI_SSH_HOSTNAME`, and `PI_SSH_SYSTEM`; its authenticated hello then marks it as `SSH <remote>` and lists the remote device identity rather than the controller machine.
+
+### File and folder transfer
+
+With the P2P transport, `send`, `ask`, and `reply` accept local file or folder paths alongside the instruction message:
+
+```typescript
+intercom({
+  action: "send",
+  to: "worker",
+  message: "Review these files and apply the configuration.",
+  paths: ["./config.json", "./templates"]
+})
+```
+
+Relative paths resolve from the sending session's working directory. The receiver validates paths, rejects symlinks and non-regular files, streams data into a temporary directory, verifies SHA-256 hashes, and only then delivers the message. Completed transfers are stored under `~/.pi/agent/intercom/inbox/<session-id>/<message-id>/`; the receiving agent gets that absolute path in a generated context attachment.
+
+Transfers default to a 512 MiB total limit and 10,000 entries. They do not overwrite an existing transfer. The broker transport continues to support inline `attachments`, but not `paths`.
 
 ## Network Requirements
 
@@ -207,5 +227,5 @@ intercom({ action: "list" })
 Run the focused transport tests with:
 
 ```bash
-npx tsx --test p2p/client.test.ts config.test.ts
+npx tsx --test p2p/client.test.ts p2p/transfer.test.ts config.test.ts
 ```

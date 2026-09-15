@@ -21,6 +21,17 @@ import type {
   SessionRegistration,
 } from "../types.ts";
 import type { SendResult } from "../broker/client.ts";
+import {
+  TRANSFER_PROTOCOL,
+  buildTransferSource,
+  createTransferStream,
+  decodeTransferJson,
+  encodeTransferJson,
+  receiveTransferFiles,
+  sendTransferFiles,
+  type TransferCompletion,
+  type TransferManifestEntry,
+} from "./transfer.ts";
 
 const PROTOCOL = "/pi-intercom/1.0.0";
 const MAX_MESSAGE_BYTES = 1024 * 1024;
@@ -36,6 +47,12 @@ interface SendOptions {
   supersedes?: string;
   retryOf?: string;
   provenance?: MessageProvenance;
+}
+
+interface TransferSendOptions extends SendOptions {
+  paths: string[];
+  cwd: string;
+  signal?: AbortSignal;
 }
 
 interface PeerSession {
@@ -80,8 +97,18 @@ type PeerEnvelope =
   | { type: "control"; scopeId?: string; from: SessionInfo; control: MessageControl };
 
 type PeerResponse =
-  | { ok: true; session?: SessionInfo }
+  | { ok: true; session?: SessionInfo; transferId?: string; storedAt?: string }
   | { ok: false; reason: string };
+
+type TransferEnvelope = {
+  type: "transfer";
+  scopeId?: string;
+  from: SessionInfo;
+  to: string;
+  message: Message;
+  transferId: string;
+  manifest: TransferManifestEntry[];
+};
 
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
@@ -175,6 +202,10 @@ export class P2PIntercomClient extends EventEmitter {
     });
     this.node = node;
     await node.handle(PROTOCOL, (stream, connection) => this.handleStream(stream, connection));
+    await node.handle(TRANSFER_PROTOCOL, (stream, connection) => this.handleTransferStream(stream, connection), {
+      maxInboundStreams: 2,
+      maxOutboundStreams: 2,
+    });
     mdnsService?.addEventListener("peer", (event) => {
       if (event.detail.id.equals(node.peerId)) return;
       // mDNS can emit a private-only response before our bound-address response.
@@ -252,6 +283,58 @@ export class P2PIntercomClient extends EventEmitter {
     }
     this.outboundRoutes.set(messageId, target.peerId);
     return { id: messageId, delivered: true, delivery: "socket_delivered", retryable: false, outcomeKnown: true };
+  }
+
+  async sendTransfer(to: string, options: TransferSendOptions): Promise<SendResult & { storedAt?: string }> {
+    const target = this.resolveTarget(to);
+    const messageId = options.messageId ?? randomUUID();
+    if (!target) {
+      return { id: messageId, delivered: false, reason: `Session "${to}" is not currently connected.`, delivery: "failed", retryable: true, outcomeKnown: true };
+    }
+    if (!this.registration || !this.node) throw new Error("Not connected");
+
+    const source = await buildTransferSource(options.paths, options.cwd);
+    const message: Message = {
+      id: messageId,
+      timestamp: Date.now(),
+      senderSequence: this.nextSenderSequence++,
+      supersedes: options.supersedes,
+      retryOf: options.retryOf,
+      replyTo: options.replyTo,
+      expectsReply: options.expectsReply,
+      provenance: options.provenance,
+      content: { text: options.text, attachments: options.attachments },
+    };
+    const envelope: TransferEnvelope = {
+      type: "transfer",
+      scopeId: this.scopeId,
+      from: this.registration,
+      to: target.session.id,
+      message,
+      transferId: messageId,
+      manifest: source.manifest,
+    };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new Error("P2P transfer timed out")), 5 * 60_000);
+    const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal;
+    let stream: Stream | undefined;
+    try {
+      stream = await this.node.dialProtocol(target.peerId, TRANSFER_PROTOCOL, { signal });
+      const framed = createTransferStream(stream);
+      await framed.write(encodeTransferJson(this.sign(envelope)), { signal });
+      await sendTransferFiles(framed, source, messageId, (completion) => this.sign(completion), signal);
+      await stream.close();
+      const response = this.verify(decodeTransferJson(await framed.read({ signal }))) as PeerResponse;
+      if (!response || typeof response !== "object" || typeof response.ok !== "boolean") throw new Error("Invalid p2p transfer response");
+      if (!response.ok) return { id: messageId, delivered: false, reason: response.reason, delivery: "failed", retryable: true, outcomeKnown: true };
+      this.outboundRoutes.set(messageId, target.peerId);
+      return { id: messageId, delivered: true, delivery: "socket_delivered", retryable: false, outcomeKnown: true, storedAt: response.storedAt };
+    } catch (error) {
+      stream?.abort(toError(error));
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   async cancelMessage(messageId: string): Promise<SendResult> {
@@ -386,6 +469,57 @@ export class P2PIntercomClient extends EventEmitter {
       } catch {
         stream.abort(toError(error));
       }
+    }
+  }
+
+  private async handleTransferStream(stream: Stream, connection: Connection): Promise<void> {
+    const framed = createTransferStream(stream);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new Error("P2P transfer timed out")), 5 * 60_000);
+    try {
+      const value = this.verify(decodeTransferJson(await framed.read({ signal: controller.signal })));
+      if (!value || typeof value !== "object") throw new Error("Invalid p2p transfer");
+      const envelope = value as TransferEnvelope;
+      if (envelope.type !== "transfer" || envelope.scopeId !== this.scopeId || !isSessionInfo(envelope.from) || envelope.to !== this._sessionId || !isMessage(envelope.message) || envelope.transferId !== envelope.message.id) {
+        throw new Error("Invalid p2p transfer header");
+      }
+      const storedAt = await receiveTransferFiles(
+        framed,
+        this._sessionId!,
+        envelope.transferId,
+        envelope.manifest,
+        (completionValue) => {
+          const completion = this.verify(completionValue) as TransferCompletion;
+          if (!completion || typeof completion !== "object") throw new Error("Invalid p2p transfer completion");
+          return completion;
+        },
+        controller.signal,
+      );
+      const listed = envelope.manifest.slice(0, 100).map((entry) => `- ${entry.path}`).join("\n");
+      const omitted = envelope.manifest.length > 100 ? `\n- ... ${envelope.manifest.length - 100} more entries` : "";
+      const attachment: Attachment = {
+        type: "context",
+        name: "Transferred files",
+        content: `Saved under ${storedAt}\n\nContents:\n${listed}${omitted}`,
+      };
+      const message: Message = {
+        ...envelope.message,
+        content: { ...envelope.message.content, attachments: [...(envelope.message.content.attachments ?? []), attachment] },
+      };
+      this.upsertPeer(connection.remotePeer, envelope.from);
+      this.inboundRoutes.set(message.id, connection.remotePeer);
+      this.emit("message", envelope.from, message);
+      await framed.write(encodeTransferJson(this.sign({ ok: true, transferId: envelope.transferId, storedAt } satisfies PeerResponse)), { signal: controller.signal });
+      await stream.close();
+    } catch (error) {
+      try {
+        await framed.write(encodeTransferJson(this.sign({ ok: false, reason: toError(error).message } satisfies PeerResponse)));
+        await stream.close();
+      } catch {
+        stream.abort(toError(error));
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
