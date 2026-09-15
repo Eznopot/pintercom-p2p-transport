@@ -32,9 +32,10 @@ test("session autocomplete delegates outside double-at mentions", async () => {
   assert.equal(await autocomplete.getSuggestions(["ask @host"], 0, 9, options), delegated);
 });
 
-test("session autocomplete delegates after abort", async () => {
-  const { delegated, autocomplete } = provider();
+test("session autocomplete never falls back to files after double-at", async () => {
+  const { autocomplete } = provider();
   const controller = new AbortController();
   controller.abort();
-  assert.equal(await autocomplete.getSuggestions(["@@api"], 0, 5, { signal: controller.signal } as any), delegated);
+  assert.equal(await autocomplete.getSuggestions(["@@api"], 0, 5, { signal: controller.signal } as any), null);
+  assert.equal(await autocomplete.getSuggestions(["@@missing"], 0, 9, { signal: new AbortController().signal } as any), null);
 });

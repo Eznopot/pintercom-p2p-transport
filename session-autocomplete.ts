@@ -16,9 +16,9 @@ export function createSessionAutocompleteProvider(
       try {
         live = await getSessions(options.signal);
       } catch {
-        return current.getSuggestions(lines, line, col, options);
+        return null;
       }
-      if (options.signal.aborted || !live) return current.getSuggestions(lines, line, col, options);
+      if (options.signal.aborted || !live) return null;
 
       const query = (match[1] ?? "").toLowerCase();
       const peers = live.sessions.filter((session) => session.id !== live.selfId);
@@ -39,7 +39,7 @@ export function createSessionAutocompleteProvider(
           const target = duplicate ? shortId(session) : (session.name || shortId(session));
           return { value: `@${target}`, label: `@${target}`, description: session.cwd };
         });
-      return items.length ? { prefix: `@@${match[1] ?? ""}`, items } : current.getSuggestions(lines, line, col, options);
+      return items.length ? { prefix: `@@${match[1] ?? ""}`, items } : null;
     },
     applyCompletion(lines, line, col, item, prefix) {
       return current.applyCompletion(lines, line, col, item, prefix);
