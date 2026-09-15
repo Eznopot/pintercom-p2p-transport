@@ -1736,6 +1736,9 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
   pi.on("session_start", (_event, ctx) => {
     if (!config.enabled) return;
     startSessionRuntime(ctx);
+  });
+  pi.on("resources_discover", (_event, ctx) => {
+    if (!config.enabled) return;
     ctx.ui?.addAutocompleteProvider?.((current) => createSessionAutocompleteProvider(current, async (signal) => {
       if (signal.aborted || !client?.isConnected()) return undefined;
       const sessions = await client.listSessions();

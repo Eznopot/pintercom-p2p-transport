@@ -1877,6 +1877,28 @@ test("sessions publish automatic lifecycle status", { concurrency: false }, asyn
   }
 });
 
+test("session autocomplete registers after session-start providers", { concurrency: false }, async () => {
+  const factories: Array<(current: unknown) => unknown> = [];
+  const harness = createExtensionHarness("autocomplete-worker", {
+    hasUI: true,
+    ui: { addAutocompleteProvider: (factory: (current: unknown) => unknown) => factories.push(factory) },
+  });
+
+  const { default: piIntercomExtension } = await import("./index.ts");
+  piIntercomExtension(harness.pi as never);
+  try {
+    await harness.emitLifecycle("session_start");
+    assert.equal(factories.length, 0);
+    const fileProvider = (current: unknown) => current;
+    factories.push(fileProvider);
+    await harness.emitLifecycle("resources_discover");
+    assert.equal(factories.length, 2);
+    assert.notEqual(factories.at(-1), fileProvider);
+  } finally {
+    await harness.emitLifecycle("session_shutdown");
+  }
+});
+
 test("idle name poll propagates /name changes without other activity", { concurrency: false }, async () => {
   const { planner, cleanup } = await setupClients();
   let sessionName = "idle-name-before";
