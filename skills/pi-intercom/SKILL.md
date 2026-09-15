@@ -344,7 +344,7 @@ Use `/name` so others can target you easily; explicit names are preserved. Unnam
 /name planner
 ```
 
-In the prompt editor, type `@` at the start of a line or after whitespace to autocomplete live peers by name, cwd, hostname, or short ID. Unique peers insert `@name`; duplicate names insert `@short-id`.
+In the prompt editor, type `@@` at the start of a line or after whitespace to autocomplete live peers by name, cwd, hostname, or short ID. Unique peers insert `@name`; duplicate names insert `@short-id`.
 
 ## Error Handling
 

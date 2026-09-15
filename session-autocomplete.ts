@@ -9,7 +9,7 @@ export function createSessionAutocompleteProvider(
   return {
     triggerCharacters: ["@"],
     async getSuggestions(lines, line, col, options): Promise<AutocompleteSuggestions | null> {
-      const match = (lines[line] ?? "").slice(0, col).match(/(?:^|\s)@([^\s@]*)$/);
+      const match = (lines[line] ?? "").slice(0, col).match(/(?:^|\s)@@([^\s@]*)$/);
       if (!match) return current.getSuggestions(lines, line, col, options);
 
       let live;
@@ -39,7 +39,7 @@ export function createSessionAutocompleteProvider(
           const target = duplicate ? shortId(session) : (session.name || shortId(session));
           return { value: `@${target}`, label: `@${target}`, description: session.cwd };
         });
-      return items.length ? { prefix: `@${match[1] ?? ""}`, items } : current.getSuggestions(lines, line, col, options);
+      return items.length ? { prefix: `@@${match[1] ?? ""}`, items } : current.getSuggestions(lines, line, col, options);
     },
     applyCompletion(lines, line, col, item, prefix) {
       return current.applyCompletion(lines, line, col, item, prefix);

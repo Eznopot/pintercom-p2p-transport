@@ -21,18 +21,20 @@ function provider() {
 
 test("session autocomplete targets unique names and duplicate short IDs", async () => {
   const { autocomplete } = provider();
-  const result = await autocomplete.getSuggestions(["ask @host"], 0, 9, { signal: new AbortController().signal } as any);
+  const result = await autocomplete.getSuggestions(["ask @@host"], 0, 10, { signal: new AbortController().signal } as any);
   assert.deepEqual(result?.items.map((item) => item.value), ["@aaaa1111", "@bbbb2222", "@web@host"]);
 });
 
-test("session autocomplete delegates outside whitespace-delimited mentions", async () => {
+test("session autocomplete delegates outside double-at mentions", async () => {
   const { delegated, autocomplete } = provider();
-  assert.equal(await autocomplete.getSuggestions(["email@example"], 0, 13, { signal: new AbortController().signal } as any), delegated);
+  const options = { signal: new AbortController().signal } as any;
+  assert.equal(await autocomplete.getSuggestions(["email@example"], 0, 13, options), delegated);
+  assert.equal(await autocomplete.getSuggestions(["ask @host"], 0, 9, options), delegated);
 });
 
 test("session autocomplete delegates after abort", async () => {
   const { delegated, autocomplete } = provider();
   const controller = new AbortController();
   controller.abort();
-  assert.equal(await autocomplete.getSuggestions(["@api"], 0, 4, { signal: controller.signal } as any), delegated);
+  assert.equal(await autocomplete.getSuggestions(["@@api"], 0, 5, { signal: controller.signal } as any), delegated);
 });
