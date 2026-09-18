@@ -3,270 +3,497 @@ export function renderDashboardHtml(): string {
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Pi Intercom Monitor</title>
-  <meta name="theme-color" content="#1e1e2e">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <title>Intercom Monitor</title>
+  <meta name="theme-color" content="#0d0f12">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg: #11111b;
-      --card-bg: #181825;
-      --card-border: #313244;
-      --text: #cdd6f4;
-      --text-muted: #a6adc8;
-      --accent: #89b4fa;
-      --green: #a6e3a1;
-      --yellow: #f9e2af;
-      --peach: #fab387;
-      --red: #f38ba8;
-      --mauve: #cba6f7;
-      --surface: #313244;
-      --radius: 12px;
+      --m3-bg: #0d0f12;
+      --m3-surface: #13161b;
+      --m3-surface-container: #1a1e26;
+      --m3-surface-container-high: #222732;
+      --m3-surface-container-highest: #2b3240;
+      
+      --m3-outline: rgba(255, 255, 255, 0.08);
+      --m3-outline-focus: rgba(168, 199, 250, 0.4);
+      --m3-outline-variant: rgba(255, 255, 255, 0.04);
+      
+      --m3-on-surface: #e3e6ed;
+      --m3-on-surface-variant: #9aa1b0;
+      --m3-on-surface-dim: #606775;
+      
+      --m3-primary: #a8c7fa;
+      --m3-primary-container: rgba(168, 199, 250, 0.12);
+      
+      --status-idle-dot: #6dd38c;
+      --status-idle-bg: rgba(109, 211, 140, 0.08);
+      --status-idle-text: #96e4ac;
+      --status-idle-border: rgba(109, 211, 140, 0.18);
+      
+      --status-busy-dot: #ffb77c;
+      --status-busy-bg: rgba(255, 183, 124, 0.08);
+      --status-busy-text: #ffd0a8;
+      --status-busy-border: rgba(255, 183, 124, 0.2);
+      
+      --status-thinking-dot: #cfbcff;
+      --status-thinking-bg: rgba(207, 188, 255, 0.08);
+      --status-thinking-text: #e1d5ff;
+      --status-thinking-border: rgba(207, 188, 255, 0.2);
+      
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      
+      --ease-m3: cubic-bezier(0.2, 0, 0, 1);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      padding: 16px;
-      padding-bottom: 40px;
+      background-color: var(--m3-bg);
+      color: var(--m3-on-surface);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      max-width: 680px;
+      margin: 0 auto;
+      min-height: 100vh;
       -webkit-font-smoothing: antialiased;
     }
+
+    /* Top App Bar */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--card-border);
+      padding: 8px 0 20px 0;
     }
-    .logo-group {
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--m3-on-surface);
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
-    .logo-icon {
-      font-size: 24px;
-      background: var(--surface);
-      padding: 6px 10px;
-      border-radius: 8px;
+
+    .live-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      background: var(--status-idle-bg);
+      border: 1px solid var(--status-idle-border);
+      border-radius: var(--radius-full);
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--status-idle-text);
+      letter-spacing: 0.02em;
     }
-    h1 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--accent);
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--status-idle-dot);
+      box-shadow: 0 0 8px var(--status-idle-dot);
     }
-    .subtitle {
+
+    .live-dot.reconnecting {
+      background-color: #ff897d;
+      box-shadow: 0 0 8px #ff897d;
+      animation: pulse 1s infinite;
+    }
+
+    .brand-sub {
       font-size: 0.75rem;
-      color: var(--text-muted);
+      color: var(--m3-on-surface-dim);
     }
-    .header-actions {
+
+    /* Action Buttons */
+    .icon-btn {
+      background: var(--m3-surface-container);
+      border: 1px solid var(--m3-outline);
+      color: var(--m3-on-surface-variant);
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s var(--ease-m3);
+    }
+
+    .icon-btn:active {
+      transform: scale(0.94);
+      background: var(--m3-surface-container-high);
+    }
+
+    .icon-btn.active {
+      background: var(--m3-primary-container);
+      border-color: rgba(168, 199, 250, 0.3);
+      color: var(--m3-primary);
+    }
+
+    .icon-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Quick Filter Chips */
+    .filter-container {
       display: flex;
       gap: 8px;
-      align-items: center;
+      margin-bottom: 14px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 2px;
     }
-    .btn {
-      background: var(--surface);
-      border: 1px solid var(--card-border);
-      color: var(--text);
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 0.8rem;
+    .filter-container::-webkit-scrollbar { display: none; }
+
+    .chip {
+      background: var(--m3-surface);
+      border: 1px solid var(--m3-outline);
+      border-radius: var(--radius-full);
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--m3-on-surface-variant);
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s;
+      white-space: nowrap;
+      transition: all 0.2s var(--ease-m3);
     }
-    .btn:hover, .btn:active {
-      background: #45475a;
+
+    .chip .chip-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      opacity: 0.8;
+      background: rgba(255, 255, 255, 0.07);
+      padding: 1px 6px;
+      border-radius: 10px;
     }
-    .btn.active {
-      border-color: var(--green);
-      color: var(--green);
+
+    .chip.active {
+      background: var(--m3-surface-container-highest);
+      border-color: rgba(168, 199, 250, 0.4);
+      color: var(--m3-primary);
     }
-    .stats-bar {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 16px;
+
+    .chip.active .chip-count {
+      background: rgba(168, 199, 250, 0.18);
+      color: var(--m3-primary);
     }
-    .stat-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 10px;
-      text-align: center;
+
+    /* M3 Search Bar */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 18px;
     }
-    .stat-val {
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: var(--accent);
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      stroke: var(--m3-on-surface-dim);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
     }
-    .stat-lbl {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .search-box {
-      margin-bottom: 16px;
-    }
+
     .search-input {
       width: 100%;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text);
-      padding: 10px 14px;
-      border-radius: var(--radius);
-      font-size: 0.9rem;
+      background: var(--m3-surface);
+      border: 1px solid var(--m3-outline);
+      color: var(--m3-on-surface);
+      padding: 11px 16px 11px 40px;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+      font-family: inherit;
       outline: none;
+      transition: all 0.2s var(--ease-m3);
     }
+
+    .search-input::placeholder {
+      color: var(--m3-on-surface-dim);
+    }
+
     .search-input:focus {
-      border-color: var(--accent);
+      background: var(--m3-surface-container);
+      border-color: var(--m3-outline-focus);
+      box-shadow: 0 0 0 2px rgba(168, 199, 250, 0.08);
     }
-    .agents-list {
+
+    /* Agent Cards */
+    .agent-grid {
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
-    .agent-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 14px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-      transition: border-color 0.2s;
+
+    .card {
+      background: var(--m3-surface);
+      border: 1px solid var(--m3-outline);
+      border-radius: var(--radius-lg);
+      padding: 16px;
       position: relative;
-      overflow: hidden;
+      transition: transform 0.2s var(--ease-m3), border-color 0.2s var(--ease-m3), background 0.2s;
     }
-    .agent-card.running {
-      border-left: 4px solid var(--yellow);
+
+    .card:active {
+      transform: scale(0.995);
     }
-    .agent-card.idle {
-      border-left: 4px solid var(--green);
-    }
-    .card-header {
+
+    .card-top {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 8px;
-      gap: 8px;
+      gap: 12px;
+      margin-bottom: 12px;
     }
+
+    .agent-name-group {
+      min-width: 0;
+    }
+
     .agent-name {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      word-break: break-word;
-    }
-    .agent-badge {
-      font-size: 0.7rem;
-      padding: 2px 8px;
-      border-radius: 12px;
+      font-size: 0.95rem;
       font-weight: 600;
-      text-transform: uppercase;
+      color: var(--m3-on-surface);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.01em;
     }
-    .badge-idle {
-      background: rgba(166, 227, 161, 0.15);
-      color: var(--green);
-      border: 1px solid rgba(166, 227, 161, 0.3);
-    }
-    .badge-thinking {
-      background: rgba(249, 226, 175, 0.15);
-      color: var(--yellow);
-      border: 1px solid rgba(249, 226, 175, 0.3);
-      animation: pulse 1.5s infinite;
-    }
-    .badge-tool {
-      background: rgba(250, 179, 135, 0.15);
-      color: var(--peach);
-      border: 1px solid rgba(250, 179, 135, 0.3);
-      animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-    .agent-meta {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .meta-row {
+
+    .agent-meta-sub {
+      font-size: 0.72rem;
+      color: var(--m3-on-surface-dim);
+      margin-top: 1px;
       display: flex;
       align-items: center;
       gap: 6px;
-      word-break: break-all;
     }
-    .meta-icon {
-      font-size: 0.9rem;
-      opacity: 0.7;
+
+    .agent-meta-sub span {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
     }
-    .context-box {
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .status-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .status-idle {
+      background: var(--status-idle-bg);
+      color: var(--status-idle-text);
+      border: 1px solid var(--status-idle-border);
+    }
+    .status-idle .dot {
+      background: var(--status-idle-dot);
+    }
+
+    .status-busy {
+      background: var(--status-busy-bg);
+      color: var(--status-busy-text);
+      border: 1px solid var(--status-busy-border);
+    }
+    .status-busy .dot {
+      background: var(--status-busy-dot);
+      animation: pulse 1.2s infinite;
+    }
+
+    .status-thinking {
+      background: var(--status-thinking-bg);
+      color: var(--status-thinking-text);
+      border: 1px solid var(--status-thinking-border);
+    }
+    .status-thinking .dot {
+      background: var(--status-thinking-dot);
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Details Grid */
+    .details-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      background: var(--m3-surface-container);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 0.78rem;
+    }
+
+    .detail-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--m3-on-surface-variant);
+      min-width: 0;
+    }
+
+    .detail-item svg {
+      width: 14px;
+      height: 14px;
+      stroke: var(--m3-on-surface-dim);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    .detail-value {
+      color: var(--m3-on-surface);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.74rem;
+    }
+
+    .model-tag {
+      font-size: 0.72rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--m3-outline);
+      color: var(--m3-primary);
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* M3 Linear Progress for Context */
+    .context-section {
       margin-top: 10px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 8px;
-      padding: 8px 10px;
     }
-    .context-header {
+
+    .context-meta {
       display: flex;
       justify-content: space-between;
       font-size: 0.72rem;
-      color: var(--text-muted);
-      margin-bottom: 4px;
+      color: var(--m3-on-surface-dim);
+      margin-bottom: 5px;
+      font-family: 'JetBrains Mono', monospace;
     }
-    .progress-bar-bg {
-      height: 6px;
-      background: var(--surface);
-      border-radius: 3px;
+
+    .progress-track {
+      height: 4px;
+      background: var(--m3-surface-container-highest);
+      border-radius: 2px;
       overflow: hidden;
     }
-    .progress-bar-fill {
+
+    .progress-indicator {
       height: 100%;
-      background: var(--green);
-      border-radius: 3px;
-      transition: width 0.3s ease;
+      background: var(--m3-primary);
+      border-radius: 2px;
+      transition: width 0.3s var(--ease-m3);
     }
-    .progress-bar-fill.warning {
-      background: var(--yellow);
+
+    .progress-indicator.warn {
+      background: #ffb77c;
     }
-    .progress-bar-fill.danger {
-      background: var(--red);
+
+    .progress-indicator.crit {
+      background: #ff897d;
     }
-    .footer-time {
-      margin-top: 10px;
-      font-size: 0.7rem;
-      color: #6c7086;
+
+    /* Card Footer */
+    .card-footer {
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--m3-outline-variant);
+      font-size: 0.7rem;
+      color: var(--m3-on-surface-dim);
     }
+
+    /* Empty state */
     .empty-state {
       text-align: center;
-      padding: 40px 16px;
-      color: var(--text-muted);
+      padding: 48px 24px;
+      color: var(--m3-on-surface-dim);
     }
+
     .empty-icon {
-      font-size: 2.5rem;
-      margin-bottom: 12px;
-      opacity: 0.5;
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 12px;
+      stroke: var(--m3-outline);
+      stroke-width: 1.5;
+      fill: none;
     }
-    .connection-banner {
-      background: rgba(243, 139, 168, 0.2);
-      border: 1px solid var(--red);
-      color: var(--red);
-      font-size: 0.8rem;
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-bottom: 12px;
+
+    .empty-text {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .banner-offline {
+      background: rgba(255, 137, 125, 0.1);
+      border: 1px solid rgba(255, 137, 125, 0.25);
+      color: #ff897d;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 0.75rem;
+      margin-bottom: 16px;
       display: none;
       align-items: center;
       gap: 8px;
@@ -274,53 +501,68 @@ export function renderDashboardHtml(): string {
   </style>
 </head>
 <body>
+
   <header>
-    <div class="logo-group">
-      <div class="logo-icon">📡</div>
-      <div>
-        <h1>Intercom Monitor</h1>
-        <div class="subtitle" id="connection-status">Connecté en direct (SSE)</div>
+    <div class="brand">
+      <div class="brand-title">
+        Intercom
+        <div class="live-chip">
+          <div class="live-dot" id="live-dot"></div>
+          <span id="live-text">En direct</span>
+        </div>
       </div>
+      <div class="brand-sub">Réseau local P2P</div>
     </div>
-    <div class="header-actions">
-      <button class="btn" id="notif-btn" onclick="toggleNotifications()">
-        <span id="notif-icon">🔔</span> Notifs
-      </button>
-    </div>
+
+    <button class="icon-btn" id="notif-btn" onclick="toggleNotifications()" aria-label="Activer les alertes">
+      <svg viewBox="0 0 24 24" id="notif-icon">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+      </svg>
+    </button>
   </header>
 
-  <div class="connection-banner" id="disconn-banner">
-    ⚠️ Connexion perdue avec l'hôte Pi Intercom. Reconnexion en cours...
+  <div class="banner-offline" id="disconn-banner">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>Connexion au flux interrompue. Reconnexion automatique...</span>
   </div>
 
-  <div class="stats-bar">
-    <div class="stat-card">
-      <div class="stat-val" id="stat-total">0</div>
-      <div class="stat-lbl">Agents</div>
+  <div class="filter-container">
+    <div class="chip active" data-filter="all" onclick="setFilter('all')">
+      Tous <span class="chip-count" id="count-all">0</span>
     </div>
-    <div class="stat-card">
-      <div class="stat-val" style="color: var(--yellow)" id="stat-busy">0</div>
-      <div class="stat-lbl">En cours</div>
+    <div class="chip" data-filter="busy" onclick="setFilter('busy')">
+      En cours <span class="chip-count" id="count-busy">0</span>
     </div>
-    <div class="stat-card">
-      <div class="stat-val" style="color: var(--green)" id="stat-idle">0</div>
-      <div class="stat-lbl">Au repos</div>
+    <div class="chip" data-filter="idle" onclick="setFilter('idle')">
+      En attente <span class="chip-count" id="count-idle">0</span>
     </div>
   </div>
 
-  <div class="search-box">
-    <input type="text" class="search-input" id="search-input" placeholder="🔍 Filtrer par nom, statut, machine..." oninput="renderAgents()">
+  <div class="search-wrap">
+    <svg class="search-icon" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <input type="text" class="search-input" id="search-input" placeholder="Rechercher par nom, machine, dossier, modèle..." oninput="renderAgents()">
   </div>
 
-  <div class="agents-list" id="agents-container">
+  <main class="agent-grid" id="agent-grid">
     <div class="empty-state">
-      <div class="empty-icon">⏳</div>
-      <div>Recherche des agents sur le réseau local...</div>
+      <svg class="empty-icon" viewBox="0 0 24 24">
+        <path d="M2 12h20M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"></path>
+      </svg>
+      <div class="empty-text">Découverte des pairs mDNS...</div>
     </div>
-  </div>
+  </main>
 
   <script>
     let sessions = [];
+    let currentFilter = 'all';
     let prevStatusMap = new Map();
     let notificationsEnabled = (typeof Notification !== 'undefined' && Notification.permission === 'granted');
 
@@ -328,17 +570,15 @@ export function renderDashboardHtml(): string {
       const btn = document.getElementById('notif-btn');
       if (notificationsEnabled) {
         btn.classList.add('active');
-        document.getElementById('notif-icon').textContent = '🔕';
       } else {
         btn.classList.remove('active');
-        document.getElementById('notif-icon').textContent = '🔔';
       }
     }
     updateNotifButton();
 
     async function toggleNotifications() {
       if (typeof Notification === 'undefined') {
-        alert("Les notifications ne sont pas supportées par ce navigateur.");
+        alert("Les notifications Web ne sont pas prises en charge sur ce navigateur.");
         return;
       }
       if (Notification.permission === 'granted') {
@@ -350,84 +590,107 @@ export function renderDashboardHtml(): string {
       if (perm === 'granted') {
         notificationsEnabled = true;
         updateNotifButton();
-        sendNotification("Notifications activées", "Vous recevrez des alertes quand un agent termine ou change d'état.");
-      } else {
-        alert("Permission refusée pour les notifications.");
+        notifyUser("Notifications activées", "Vous serez notifié des changements d'état des agents.");
       }
     }
 
-    function playBeep() {
+    function playAlertChime() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-        gain.gain.setValueAtTime(0.08, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+        osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.15); // E5
+        gain.gain.setValueAtTime(0.04, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
         osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.25);
+        osc.stop(ctx.currentTime + 0.22);
       } catch (e) {}
     }
 
-    function sendNotification(title, body) {
+    function notifyUser(title, body) {
       if (notificationsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
           new Notification(title, {
             body: body,
-            icon: "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>📡</text></svg>",
-            vibrate: [200, 100, 200]
+            icon: "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%23a8c7fa%22/></svg>"
           });
-          playBeep();
+          playAlertChime();
         } catch (e) {}
       }
     }
 
     function timeAgo(ts) {
       if (!ts) return "inconnu";
-      const seconds = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-      if (seconds < 60) return seconds + "s";
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return minutes + "m";
-      const hours = Math.floor(minutes / 60);
-      return hours + "h " + (minutes % 60) + "m";
+      const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+      if (s < 60) return s + "s";
+      const m = Math.floor(s / 60);
+      if (m < 60) return m + "m";
+      const h = Math.floor(m / 60);
+      return h + "h " + (m % 60) + "m";
     }
 
     function formatTokens(count) {
-      if (!count && count !== 0) return "?";
+      if (count === undefined || count === null) return "?";
       if (count >= 1000000) return (count / 1000000).toFixed(1) + "M";
-      if (count >= 1000) return (count / 1000).toFixed(1) + "k";
+      if (count >= 1000) return (count / 1000).toFixed(0) + "k";
       return count.toString();
     }
 
-    function checkStatusTransitions(newSessions) {
-      const newMap = new Map();
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.filter === filter);
+      });
+      renderAgents();
+    }
+
+    function checkStatusChanges(newSessions) {
+      const nextMap = new Map();
       for (const s of newSessions) {
-        const sid = s.id;
+        const id = s.id;
         const currentSt = s.status || "idle";
-        const name = s.name || sid.slice(0, 8);
-        if (prevStatusMap.has(sid)) {
-          const oldSt = prevStatusMap.get(sid);
+        const name = s.name || id.slice(0, 8);
+        if (prevStatusMap.has(id)) {
+          const oldSt = prevStatusMap.get(id);
           if (oldSt !== currentSt) {
             if ((oldSt.startsWith("tool:") || oldSt === "thinking") && currentSt === "idle") {
-              sendNotification("✅ Agent " + name + " a terminé", "L'agent est maintenant au repos (idle).");
+              notifyUser(name + " · terminé", "L'agent est de nouveau disponible.");
             } else if (currentSt.startsWith("tool:")) {
-              const tool = currentSt.split(":")[1] || "";
-              sendNotification("⚙️ " + name + " lance " + tool, "Exécution de l'outil " + tool);
+              const tool = currentSt.replace("tool:", "");
+              notifyUser(name + " · exécution", "Outil en cours : " + tool);
             }
           }
         }
-        newMap.set(sid, currentSt);
+        nextMap.set(id, currentSt);
       }
-      prevStatusMap = newMap;
+      prevStatusMap = nextMap;
     }
 
     function renderAgents() {
       const query = document.getElementById('search-input').value.toLowerCase().trim();
-      const container = document.getElementById('agents-container');
+      const container = document.getElementById('agent-grid');
+
+      // Update counters
+      let busyCount = 0;
+      let idleCount = 0;
+      sessions.forEach(s => {
+        const st = s.status || "idle";
+        if (st === "thinking" || st.startsWith("tool:")) busyCount++;
+        else idleCount++;
+      });
+      document.getElementById('count-all').textContent = sessions.length;
+      document.getElementById('count-busy').textContent = busyCount;
+      document.getElementById('count-idle').textContent = idleCount;
 
       const filtered = sessions.filter(s => {
+        const st = s.status || "idle";
+        const isBusy = st === "thinking" || st.startsWith("tool:");
+        if (currentFilter === 'busy' && !isBusy) return false;
+        if (currentFilter === 'idle' && isBusy) return false;
+
         if (!query) return true;
         const name = (s.name || '').toLowerCase();
         const host = (s.hostname || '').toLowerCase();
@@ -437,134 +700,143 @@ export function renderDashboardHtml(): string {
         return name.includes(query) || host.includes(query) || cwd.includes(query) || model.includes(query) || status.includes(query);
       });
 
-      // Update counters
-      document.getElementById('stat-total').textContent = sessions.length;
-      let busy = 0;
-      let idle = 0;
-      sessions.forEach(s => {
-        const st = s.status || "idle";
-        if (st === "thinking" || st.startsWith("tool:")) busy++;
-        else idle++;
-      });
-      document.getElementById('stat-busy').textContent = busy;
-      document.getElementById('stat-idle').textContent = idle;
-
       if (filtered.length === 0) {
         container.innerHTML = \`
           <div class="empty-state">
-            <div class="empty-icon">\${query ? '🔎' : '📡'}</div>
-            <div>\${query ? 'Aucun agent ne correspond à la recherche' : 'Aucun agent détecté sur le réseau local'}</div>
+            <svg class="empty-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            <div class="empty-text">\${query ? 'Aucun agent ne correspond au filtre' : 'Aucun agent connecté'}</div>
           </div>\`;
         return;
       }
 
       container.innerHTML = filtered.map(s => {
         const st = s.status || "idle";
-        const isBusy = st === "thinking" || st.startsWith("tool:");
-        let badgeClass = "badge-idle";
-        let badgeLabel = "🟢 IDLE";
+        let badgeClass = "status-idle";
+        let badgeLabel = "En attente";
+        
         if (st === "thinking") {
-          badgeClass = "badge-thinking";
-          badgeLabel = "🧠 THINKING";
+          badgeClass = "status-thinking";
+          badgeLabel = "Réflexion";
         } else if (st.startsWith("tool:")) {
-          badgeClass = "badge-tool";
-          badgeLabel = "⚙️ " + st.slice(5).toUpperCase();
+          badgeClass = "status-busy";
+          badgeLabel = st.replace("tool:", "");
         }
 
-        const name = s.name || ("Agent " + s.id.slice(0, 8));
+        const name = s.name || ("session-" + s.id.slice(0, 8));
         const host = s.hostname || "local";
         const cwd = s.cwd || "~";
-        const model = s.model || "inconnu";
+        const model = s.model || "";
         const pct = (typeof s.contextPct === 'number') ? s.contextPct : null;
-        let pctClass = "";
-        if (pct !== null && pct > 80) pctClass = "danger";
-        else if (pct !== null && pct > 50) pctClass = "warning";
+        let progClass = "";
+        if (pct !== null && pct > 80) progClass = "crit";
+        else if (pct !== null && pct > 55) progClass = "warn";
 
         return \`
-          <div class="agent-card \${isBusy ? 'running' : 'idle'}">
-            <div class="card-header">
-              <div class="agent-name">
-                \${name}
+          <article class="card">
+            <div class="card-top">
+              <div class="agent-name-group">
+                <div class="agent-name">\${name}</div>
+                <div class="agent-meta-sub">
+                  <span>\${host}</span>
+                  <span>·</span>
+                  <span>PID \${s.pid || '?'}</span>
+                </div>
               </div>
-              <span class="agent-badge \${badgeClass}">\${badgeLabel}</span>
+              <div class="status-badge \${badgeClass}">
+                <span class="dot"></span>
+                <span>\${badgeLabel}</span>
+              </div>
             </div>
 
-            <div class="agent-meta">
-              <div class="meta-row">
-                <span class="meta-icon">💻</span>
-                <span><strong>\${host}</strong> (\${s.os || 'os'})</span>
+            <div class="details-row">
+              <div class="detail-item">
+                <svg viewBox="0 0 24 24">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="detail-value" title="\${cwd}">\${cwd}</span>
               </div>
-              <div class="meta-row">
-                <span class="meta-icon">📁</span>
-                <span>\${cwd}</span>
-              </div>
-              <div class="meta-row">
-                <span class="meta-icon">🤖</span>
-                <span>\${model}</span>
-              </div>
+              \${model ? \`
+                <div class="detail-item">
+                  <svg viewBox="0 0 24 24">
+                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                    <rect x="9" y="9" width="6" height="6"></rect>
+                    <line x1="9" y1="1" x2="9" y2="4"></line>
+                    <line x1="15" y1="1" x2="15" y2="4"></line>
+                    <line x1="9" y1="20" x2="9" y2="23"></line>
+                    <line x1="15" y1="20" x2="15" y2="23"></line>
+                    <line x1="20" y1="9" x2="23" y2="9"></line>
+                    <line x1="20" y1="14" x2="23" y2="14"></line>
+                    <line x1="1" y1="9" x2="4" y2="9"></line>
+                    <line x1="1" y1="14" x2="4" y2="14"></line>
+                  </svg>
+                  <span class="model-tag">\${model}</span>
+                </div>
+              \` : ''}
             </div>
 
             \${pct !== null ? \`
-              <div class="context-box">
-                <div class="context-header">
+              <div class="context-section">
+                <div class="context-meta">
                   <span>Contexte</span>
-                  <span><strong>\${pct}%</strong> (\${formatTokens(s.contextTokens)} / \${formatTokens(s.contextWindow)})</span>
+                  <span>\${pct}% (\${formatTokens(s.contextTokens)} / \${formatTokens(s.contextWindow)})</span>
                 </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill \${pctClass}" style="width: \${Math.min(100, Math.max(0, pct))}%"></div>
+                <div class="progress-track">
+                  <div class="progress-indicator \${progClass}" style="width: \${Math.min(100, Math.max(0, pct))}%"></div>
                 </div>
               </div>
             \` : ''}
 
-            <div class="footer-time">
-              <span>Dernière activité: \${timeAgo(s.lastActivity)}</span>
-              <span>PID: \${s.pid || '?'}</span>
+            <div class="card-footer">
+              <span>Activité: il y a \${timeAgo(s.lastActivity)}</span>
+              <span>Démarré: il y a \${timeAgo(s.startedAt)}</span>
             </div>
-          </div>
+          </article>
         \`;
       }).join('');
     }
 
-    // Connect SSE
     let eventSource = null;
-    function connectEvents() {
+    function connectSSE() {
       if (eventSource) eventSource.close();
       eventSource = new EventSource('/api/events');
 
       eventSource.onopen = () => {
         document.getElementById('disconn-banner').style.display = 'none';
-        document.getElementById('connection-status').textContent = 'Connecté en direct (SSE)';
+        document.getElementById('live-dot').className = 'live-dot';
+        document.getElementById('live-text').textContent = 'En direct';
       };
 
       eventSource.onerror = () => {
         document.getElementById('disconn-banner').style.display = 'flex';
-        document.getElementById('connection-status').textContent = 'Reconnexion...';
+        document.getElementById('live-dot').className = 'live-dot reconnecting';
+        document.getElementById('live-text').textContent = 'Reconnexion...';
       };
 
       eventSource.addEventListener('sessions', (e) => {
         try {
           const data = JSON.parse(e.data);
           sessions = data;
-          checkStatusTransitions(sessions);
+          checkStatusChanges(sessions);
           renderAgents();
         } catch (err) {
-          console.error("SSE parse error", err);
+          console.error("SSE JSON parse error", err);
         }
       });
     }
 
-    // Initial fetch fallback
     fetch('/api/sessions')
       .then(res => res.json())
       .then(data => {
         sessions = data;
-        checkStatusTransitions(sessions);
+        checkStatusChanges(sessions);
         renderAgents();
       })
       .catch(console.error);
 
-    connectEvents();
-    // Rafraîchir les libellés de temps relatif toutes les 5s
+    connectSSE();
     setInterval(renderAgents, 5000);
   </script>
 </body>

@@ -39,42 +39,44 @@ test("IntercomWebServer starts, serves endpoints, and stops cleanly", async () =
     host: "127.0.0.1",
   });
 
-  const info = await server.start();
-  assert.ok(server.isRunning());
-  assert.ok(info.port > 0);
+  try {
+    const info = await server.start();
+    assert.ok(server.isRunning());
+    assert.ok(info.port > 0);
 
-  const base = `http://127.0.0.1:${info.port}`;
+    const base = `http://127.0.0.1:${info.port}`;
 
-  // 1. Test HTML Dashboard
-  const htmlRes = await fetch(`${base}/`);
-  assert.equal(htmlRes.status, 200);
-  assert.equal(htmlRes.headers.get("content-type"), "text/html; charset=utf-8");
-  const htmlText = await htmlRes.text();
-  assert.ok(htmlText.includes("Pi Intercom Monitor"));
-  assert.ok(htmlText.includes("/api/events"));
+    // 1. Test HTML Dashboard
+    const htmlRes = await fetch(`${base}/`);
+    assert.equal(htmlRes.status, 200);
+    assert.equal(htmlRes.headers.get("content-type"), "text/html; charset=utf-8");
+    const htmlText = await htmlRes.text();
+    assert.ok(htmlText.includes("Intercom Monitor"));
+    assert.ok(htmlText.includes("/api/events"));
 
-  // 2. Test /ping
-  const pingRes = await fetch(`${base}/ping`);
-  assert.equal(pingRes.status, 200);
-  const pingJson = await pingRes.json();
-  assert.equal(pingJson.ok, true);
+    // 2. Test /ping
+    const pingRes = await fetch(`${base}/ping`);
+    assert.equal(pingRes.status, 200);
+    const pingJson = await pingRes.json();
+    assert.equal(pingJson.ok, true);
 
-  // 3. Test /manifest.json
-  const manifestRes = await fetch(`${base}/manifest.json`);
-  assert.equal(manifestRes.status, 200);
-  const manifestJson = await manifestRes.json();
-  assert.equal(manifestJson.name, "Pi Intercom Monitor");
+    // 3. Test /manifest.json
+    const manifestRes = await fetch(`${base}/manifest.json`);
+    assert.equal(manifestRes.status, 200);
+    const manifestJson = await manifestRes.json();
+    assert.equal(manifestJson.name, "Pi Intercom Monitor");
 
-  // 4. Test /api/sessions
-  const sessionsRes = await fetch(`${base}/api/sessions`);
-  assert.equal(sessionsRes.status, 200);
-  const sessionsJson = await sessionsRes.json();
-  assert.equal(Array.isArray(sessionsJson), true);
-  assert.equal(sessionsJson.length, 1);
-  assert.equal(sessionsJson[0].name, "AlphaAgent");
-  assert.equal(sessionsJson[0].status, "thinking");
-
-  // 5. Test stop
-  await server.stop();
-  assert.equal(server.isRunning(), false);
+    // 4. Test /api/sessions
+    const sessionsRes = await fetch(`${base}/api/sessions`);
+    assert.equal(sessionsRes.status, 200);
+    const sessionsJson = await sessionsRes.json();
+    assert.equal(Array.isArray(sessionsJson), true);
+    assert.equal(sessionsJson.length, 1);
+    assert.equal(sessionsJson[0].name, "AlphaAgent");
+    assert.equal(sessionsJson[0].status, "thinking");
+  } finally {
+    // 5. Test stop always runs cleanly
+    await server.stop();
+    assert.equal(server.isRunning(), false);
+  }
 });

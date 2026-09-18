@@ -104,7 +104,7 @@ export class IntercomWebServer {
 
     for (const client of this.sseClients) {
       try {
-        client.end();
+        client.destroy();
       } catch {
         // Ignore client termination errors
       }
@@ -114,6 +114,12 @@ export class IntercomWebServer {
     if (this.server) {
       const s = this.server;
       this.server = null;
+      try {
+        s.closeAllConnections?.();
+        s.closeIdleConnections?.();
+      } catch {
+        // Ignore fallback
+      }
       await new Promise<void>((resolve) => {
         s.close(() => resolve());
       });
