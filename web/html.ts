@@ -18,8 +18,10 @@ export function renderDashboardHtml(): string {
       --bg: #090a0d;
       --card: #111318;
       --card-hover: #15181f;
+      --card-active: #181c24;
       --border: rgba(255, 255, 255, 0.07);
-      --border-subtle: rgba(255, 255, 255, 0.03);
+      --border-subtle: rgba(255, 255, 255, 0.04);
+      --border-focus: rgba(130, 170, 255, 0.35);
       
       --text-main: #f0f2f5;
       --text-muted: #848b99;
@@ -31,6 +33,8 @@ export function renderDashboardHtml(): string {
       --dot-idle: #4ade80;
       --dot-thinking: #c084fc;
       --dot-busy: #fb923c;
+      
+      --terminal-bg: #060709;
       
       --radius: 12px;
       --radius-sm: 6px;
@@ -47,7 +51,7 @@ export function renderDashboardHtml(): string {
       background-color: var(--bg);
       color: var(--text-main);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
       max-width: 640px;
       margin: 0 auto;
       min-height: 100vh;
@@ -59,7 +63,7 @@ export function renderDashboardHtml(): string {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .brand {
@@ -101,6 +105,12 @@ export function renderDashboardHtml(): string {
       50% { opacity: 0.2; }
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .icon-btn {
       background: var(--card);
       border: 1px solid var(--border);
@@ -136,12 +146,12 @@ export function renderDashboardHtml(): string {
       stroke-linejoin: round;
     }
 
-    /* Filters & Search */
+    /* Controls & Filters */
     .controls {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .filter-pills {
@@ -149,6 +159,7 @@ export function renderDashboardHtml(): string {
       gap: 6px;
       overflow-x: auto;
       scrollbar-width: none;
+      padding-bottom: 2px;
     }
     .filter-pills::-webkit-scrollbar { display: none; }
 
@@ -157,7 +168,7 @@ export function renderDashboardHtml(): string {
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 5px 12px;
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       font-weight: 500;
       color: var(--text-muted);
       cursor: pointer;
@@ -218,20 +229,27 @@ export function renderDashboardHtml(): string {
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 14px 16px;
-      transition: border-color 0.15s ease;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      position: relative;
     }
 
     .agent-card:active {
       background: var(--card-hover);
     }
 
-    /* Card header */
+    .agent-card.expanded {
+      background: var(--card-active);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Card Head */
     .card-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 6px;
-      gap: 12px;
+      gap: 8px;
     }
 
     .agent-identity {
@@ -262,6 +280,13 @@ export function renderDashboardHtml(): string {
       letter-spacing: -0.01em;
     }
 
+    .head-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
     .model-badge {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.68rem;
@@ -271,17 +296,33 @@ export function renderDashboardHtml(): string {
       border-radius: 4px;
       border: 1px solid var(--border-subtle);
       white-space: nowrap;
-      flex-shrink: 0;
+    }
+
+    .chevron {
+      width: 14px;
+      height: 14px;
+      stroke: var(--text-dim);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.2s ease;
+    }
+
+    .agent-card.expanded .chevron {
+      transform: rotate(180deg);
+      stroke: var(--text-main);
     }
 
     /* State subtitle */
     .state-line {
       font-size: 0.74rem;
       color: var(--text-muted);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
     }
 
     .state-label {
@@ -293,36 +334,28 @@ export function renderDashboardHtml(): string {
     .state-thinking { color: var(--dot-thinking); }
     .state-idle { color: var(--text-muted); }
 
-    /* Card meta info */
-    .meta-block {
+    /* Compact Summary in closed card */
+    .compact-meta {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 0.75rem;
-      color: var(--text-muted);
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.71rem;
+      color: var(--text-dim);
+      gap: 8px;
     }
 
-    .meta-path {
+    .compact-cwd {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
-      color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      max-width: 70%;
     }
 
-    .meta-sub {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.7rem;
-      color: var(--text-dim);
-    }
-
-    /* Context line */
+    /* Context Track */
     .context-track-wrap {
       margin-top: 10px;
-      padding-top: 8px;
+      padding-top: 6px;
       border-top: 1px solid var(--border-subtle);
     }
 
@@ -330,14 +363,14 @@ export function renderDashboardHtml(): string {
       display: flex;
       justify-content: space-between;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.66rem;
+      font-size: 0.65rem;
       color: var(--text-dim);
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
 
     .context-bar {
       height: 3px;
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.05);
       border-radius: 2px;
       overflow: hidden;
     }
@@ -348,11 +381,126 @@ export function renderDashboardHtml(): string {
       border-radius: 2px;
       transition: width 0.3s ease;
     }
-
     .context-fill.warn { background: #fb923c; }
     .context-fill.crit { background: #f87171; }
 
-    /* Empty state */
+    /* Expanded Details Drawer */
+    .card-drawer {
+      display: none;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      flex-direction: column;
+      gap: 12px;
+      cursor: default;
+    }
+
+    .agent-card.expanded .card-drawer {
+      display: flex;
+    }
+
+    /* Terminal Command Box */
+    .cmd-box {
+      background: var(--terminal-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      position: relative;
+    }
+
+    .cmd-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .cmd-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.76rem;
+      color: #79c0ff;
+      word-break: break-all;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+
+    .cmd-text.last {
+      color: var(--text-muted);
+    }
+
+    /* Action buttons in expanded card */
+    .drawer-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.72rem;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+
+    .action-btn:hover, .action-btn:active {
+      background: var(--card-hover);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .action-btn svg {
+      width: 13px;
+      height: 13px;
+      stroke: var(--text-muted);
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Technical Key-Values */
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      font-size: 0.72rem;
+    }
+
+    .kv-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .kv-k {
+      color: var(--text-dim);
+      font-size: 0.66rem;
+    }
+
+    .kv-v {
+      color: var(--text-main);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Empty state & Alerts */
     .empty-state {
       text-align: center;
       padding: 48px 16px;
@@ -370,6 +518,27 @@ export function renderDashboardHtml(): string {
       margin-bottom: 14px;
       display: none;
     }
+
+    .toast {
+      position: fixed;
+      bottom: max(20px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1c2128;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
   </style>
 </head>
 <body>
@@ -383,12 +552,22 @@ export function renderDashboardHtml(): string {
       </div>
     </div>
 
-    <button class="icon-btn" id="notif-btn" onclick="toggleNotifications()" aria-label="Notifications">
-      <svg viewBox="0 0 24 24">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-      </svg>
-    </button>
+    <div class="header-actions">
+      <button class="icon-btn" id="refresh-btn" onclick="manualRefresh()" aria-label="Rafraîchir" title="Rafraîchir">
+        <svg viewBox="0 0 24 24">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+
+      <button class="icon-btn" id="notif-btn" onclick="toggleNotifications()" aria-label="Notifications" title="Notifications">
+        <svg viewBox="0 0 24 24">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <div class="offline-notice" id="offline-bar">
@@ -396,7 +575,7 @@ export function renderDashboardHtml(): string {
   </div>
 
   <div class="controls">
-    <div class="filter-pills">
+    <div class="filter-pills" id="filter-pills">
       <div class="pill active" data-filter="all" onclick="setFilter('all')">
         Tous <span class="pill-count" id="count-all">0</span>
       </div>
@@ -408,18 +587,46 @@ export function renderDashboardHtml(): string {
       </div>
     </div>
 
-    <input type="text" class="search-input" id="search-input" placeholder="Filtrer (nom, machine, dossier, modèle)..." oninput="renderAgents()">
+    <input type="text" class="search-input" id="search-input" placeholder="Filtrer (nom, machine, dossier, modèle, commande)..." oninput="renderAgents()">
   </div>
 
   <main class="agent-list" id="agent-list">
     <div class="empty-state">Recherche d'agents sur le réseau local...</div>
   </main>
 
+  <div class="toast" id="toast">Copié dans le presse-papier</div>
+
   <script>
     let sessions = [];
     let currentFilter = 'all';
     let prevStatusMap = new Map();
+    let expandedSessions = new Set();
     let notificationsEnabled = (typeof Notification !== 'undefined' && Notification.permission === 'granted');
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function copyToClipboard(text, msg = "Copié dans le presse-papier") {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(msg);
+      }).catch(() => {});
+    }
+
+    function toggleExpand(id, event) {
+      if (event && (event.target.closest('button') || event.target.closest('.cmd-box'))) {
+        return;
+      }
+      if (expandedSessions.has(id)) {
+        expandedSessions.delete(id);
+      } else {
+        expandedSessions.add(id);
+      }
+      renderAgents();
+    }
 
     function updateNotifBtn() {
       const btn = document.getElementById('notif-btn');
@@ -491,6 +698,18 @@ export function renderDashboardHtml(): string {
       renderAgents();
     }
 
+    function manualRefresh() {
+      fetch('/api/sessions')
+        .then(r => r.json())
+        .then(data => {
+          sessions = data;
+          checkStatusChanges(sessions);
+          renderAgents();
+          showToast("Liste actualisée");
+        })
+        .catch(() => {});
+    }
+
     function checkStatusChanges(newSessions) {
       const nextMap = new Map();
       for (const s of newSessions) {
@@ -501,16 +720,26 @@ export function renderDashboardHtml(): string {
           const oldSt = prevStatusMap.get(id);
           if (oldSt !== currentSt) {
             if ((oldSt.startsWith("tool:") || oldSt === "thinking") && currentSt === "idle") {
-              notifyUser(name + " terminé", "L'agent est de nouveau au repos.");
+              notifyUser(name + " · terminé", "L'agent est de nouveau au repos.");
             } else if (currentSt.startsWith("tool:")) {
-              const tool = currentSt.replace("tool:", "");
-              notifyUser(name, "Outil en cours : " + tool);
+              const cmd = s.activeToolDetail ? " : " + s.activeToolDetail : "";
+              notifyUser(name, "Outil" + cmd);
             }
           }
         }
         nextMap.set(id, currentSt);
       }
       prevStatusMap = nextMap;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
     function renderAgents() {
@@ -540,7 +769,9 @@ export function renderDashboardHtml(): string {
         const cwd = (s.cwd || '').toLowerCase();
         const model = (s.model || '').toLowerCase();
         const status = (s.status || '').toLowerCase();
-        return name.includes(query) || host.includes(query) || cwd.includes(query) || model.includes(query) || status.includes(query);
+        const cmd = (s.activeToolDetail || '').toLowerCase();
+        const lastCmd = (s.lastToolDetail || '').toLowerCase();
+        return name.includes(query) || host.includes(query) || cwd.includes(query) || model.includes(query) || status.includes(query) || cmd.includes(query) || lastCmd.includes(query);
       });
 
       if (filtered.length === 0) {
@@ -577,15 +808,23 @@ export function renderDashboardHtml(): string {
         else if (pct !== null && pct > 55) progClass = "warn";
 
         const lastAct = timeAgo(s.lastActivity);
+        const isExpanded = expandedSessions.has(s.id);
+        const hasActiveCmd = Boolean(s.activeToolDetail);
+        const hasLastCmd = Boolean(s.lastToolDetail);
 
         return \`
-          <article class="agent-card">
+          <article class="agent-card \${isExpanded ? 'expanded' : ''}" onclick="toggleExpand('\${s.id}', event)">
             <div class="card-head">
               <div class="agent-identity">
                 <span class="status-dot \${dotClass}"></span>
-                <span class="agent-name">\${name}</span>
+                <span class="agent-name">\${escapeHtml(name)}</span>
               </div>
-              \${model ? \`<span class="model-badge">\${model}</span>\` : ''}
+              <div class="head-right">
+                \${model ? \`<span class="model-badge">\${escapeHtml(model)}</span>\` : ''}
+                <svg class="chevron" viewBox="0 0 24 24">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
             </div>
 
             <div class="state-line">
@@ -593,13 +832,9 @@ export function renderDashboardHtml(): string {
               \${lastAct ? \`<span>· actif il y a \${lastAct}</span>\` : ''}
             </div>
 
-            <div class="meta-block">
-              <div class="meta-path" title="\${cwd}">\${cwd}</div>
-              <div class="meta-sub">
-                <span>\${host}</span>
-                <span>·</span>
-                <span>PID \${s.pid || '?'}</span>
-              </div>
+            <div class="compact-meta">
+              <div class="compact-cwd" title="\${escapeHtml(cwd)}">\${escapeHtml(cwd)}</div>
+              <div>\${escapeHtml(host)}</div>
             </div>
 
             \${pct !== null ? \`
@@ -613,6 +848,63 @@ export function renderDashboardHtml(): string {
                 </div>
               </div>
             \` : ''}
+
+            <!-- Drawer unfolded on click -->
+            <div class="card-drawer">
+              \${hasActiveCmd ? \`
+                <div class="cmd-box">
+                  <div class="cmd-label">
+                    <span>Commande en cours</span>
+                    <button class="action-btn" onclick="copyToClipboard('\${escapeHtml(s.activeToolDetail).replace(/'/g, "\\\\'")}', 'Commande copiée')">
+                      <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      Copier
+                    </button>
+                  </div>
+                  <div class="cmd-text">$ \${escapeHtml(s.activeToolDetail)}</div>
+                </div>
+              \` : (hasLastCmd ? \`
+                <div class="cmd-box">
+                  <div class="cmd-label">
+                    <span>Dernière action</span>
+                    <button class="action-btn" onclick="copyToClipboard('\${escapeHtml(s.lastToolDetail).replace(/'/g, "\\\\'")}', 'Action copiée')">
+                      <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      Copier
+                    </button>
+                  </div>
+                  <div class="cmd-text last">$ \${escapeHtml(s.lastToolDetail)}</div>
+                </div>
+              \` : '')}
+
+              <div class="drawer-actions">
+                <button class="action-btn" onclick="copyToClipboard('/intercom to:\${s.name || s.id}', 'Commande intercom copiée')">
+                  <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                  Contacter (/intercom)
+                </button>
+                <button class="action-btn" onclick="copyToClipboard('\${escapeHtml(cwd).replace(/'/g, "\\\\'")}', 'Chemin copié')">
+                  <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                  Copier chemin
+                </button>
+              </div>
+
+              <div class="kv-grid">
+                <div class="kv-item">
+                  <span class="kv-k">Machine</span>
+                  <span class="kv-v">\${escapeHtml(host)} (\${escapeHtml(s.os || 'os')})</span>
+                </div>
+                <div class="kv-item">
+                  <span class="kv-k">PID</span>
+                  <span class="kv-v">\${s.pid || '?'}</span>
+                </div>
+                <div class="kv-item">
+                  <span class="kv-k">Session ID</span>
+                  <span class="kv-v" title="\${s.id}">\${s.id.slice(0, 12)}...</span>
+                </div>
+                <div class="kv-item">
+                  <span class="kv-k">Tmux</span>
+                  <span class="kv-v">\${s.tmuxPane || 'hors tmux'}</span>
+                </div>
+              </div>
+            </div>
           </article>
         \`;
       }).join('');

@@ -138,10 +138,12 @@ To stop the web server:
 ```
 
 Features:
-- **Mobile-friendly UI**: Modern responsive interface displaying every agent discovered on the LAN.
-- **Live SSE updates**: Real-time status badge transitions (`🟢 IDLE`, `🧠 THINKING`, `⚙️ TOOL:<NAME>`), token context usage gauges, and relative activity times.
-- **Browser Push Notifications**: Optional notifications and gentle audio alerts on your mobile device when an agent finishes thinking or begins a tool execution.
-- **Search & Filter**: Instantly filter agents by name, hostname, working directory, model, or status.
+- **Mobile-friendly UI**: Modern, minimalist dark interface displaying every agent discovered on the LAN.
+- **Expandable Agent Cards**: Tap any agent card to inspect the active running command (e.g. bash commands, file paths, tool queries) or the last executed action, with one-tap copy.
+- **Live SSE updates**: Real-time status transitions (`idle`, `thinking`, `tool: <name>`), token context usage gauges, and relative activity times.
+- **Quick Actions**: One-tap copy for `/intercom to:<agent>` handoff, full working directory path, PID, and tmux pane details.
+- **Browser Push Notifications**: Optional web notifications with gentle audio chimes on mobile when an agent finishes thinking or begins running a tool.
+- **Search & Filter**: Instantly filter agents by name, hostname, working directory, model, status, or executed command.
 
 
 ## How the P2P Layer Works

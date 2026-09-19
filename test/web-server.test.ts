@@ -29,6 +29,8 @@ test("IntercomWebServer starts, serves endpoints, and stops cleanly", async () =
       contextPct: 42,
       contextTokens: 42000,
       contextWindow: 100000,
+      activeToolDetail: "npm run build",
+      lastToolDetail: "git status",
     },
   ];
 
@@ -74,6 +76,8 @@ test("IntercomWebServer starts, serves endpoints, and stops cleanly", async () =
     assert.equal(sessionsJson.length, 1);
     assert.equal(sessionsJson[0].name, "AlphaAgent");
     assert.equal(sessionsJson[0].status, "thinking");
+    assert.equal(sessionsJson[0].activeToolDetail, "npm run build");
+    assert.equal(sessionsJson[0].lastToolDetail, "git status");
   } finally {
     // 5. Test stop always runs cleanly
     await server.stop();

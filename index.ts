@@ -649,6 +649,35 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
   let runtimeGeneration = 0;
   let agentRunning = false;
   const activeTools = new Map<string, string>();
+  let currentActiveToolDetail: string | null = null;
+  let lastCompletedToolDetail: string | null = null;
+
+  function formatToolCallDetail(toolName: string, args: unknown): string {
+    if (!args || typeof args !== "object") return toolName;
+    const record = args as Record<string, unknown>;
+    if (toolName === "bash" && typeof record.command === "string") {
+      return record.command.trim();
+    }
+    if ((toolName === "read" || toolName === "write" || toolName === "edit") && typeof record.path === "string") {
+      return `${toolName} ${record.path.trim()}`;
+    }
+    if ((toolName === "ffgrep" || toolName === "fffind") && typeof record.pattern === "string") {
+      return `${toolName} "${record.pattern.trim()}"`;
+    }
+    if (toolName === "intercom" && typeof record.action === "string") {
+      return `intercom ${record.action}${record.to ? ` -> ${record.to}` : ""}`;
+    }
+    if (typeof record.command === "string") {
+      return record.command.trim();
+    }
+    if (typeof record.query === "string") {
+      return `${toolName} "${record.query.trim()}"`;
+    }
+    if (typeof record.path === "string") {
+      return `${toolName} ${record.path.trim()}`;
+    }
+    return toolName;
+  }
   let intercomToolHiddenByPolicy = false;
   const replyTracker = new ReplyTracker();
   function hideIntercomTool(): void {
@@ -998,7 +1027,12 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
       return;
     }
     // context% rides the status heartbeat so peers see live usage at turn boundaries.
-    client.updatePresence({ status: currentStatus(), ...currentContextUsage() });
+    client.updatePresence({
+      status: currentStatus(),
+      activeToolDetail: currentActiveToolDetail,
+      lastToolDetail: lastCompletedToolDetail,
+      ...currentContextUsage(),
+    });
   }
   function currentSessionTargetMatches(to: string, resolvedTo?: string | null, activeClient?: ActiveIntercomClient): boolean {
     const targets = new Set<string>();
@@ -1780,6 +1814,8 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
     replyTracker.reset();
     agentRunning = false;
     activeTools.clear();
+    currentActiveToolDetail = null;
+    lastCompletedToolDetail = null;
     if (webServer) {
       await webServer.stop().catch(() => {});
       webServer = null;
@@ -1807,11 +1843,12 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
     activeTools.clear();
     syncPresenceStatus();
   });
-  pi.on("tool_execution_start", (event) => {
+  pi.on("tool_execution_start", (event: any) => {
     if (!getLiveContext()) {
       return;
     }
     activeTools.set(event.toolCallId, event.toolName);
+    currentActiveToolDetail = formatToolCallDetail(event.toolName, event.args);
     syncPresenceStatus();
   });
   pi.on("tool_execution_end", (event) => {
@@ -1819,6 +1856,12 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
       return;
     }
     activeTools.delete(event.toolCallId);
+    if (activeTools.size === 0) {
+      if (currentActiveToolDetail) {
+        lastCompletedToolDetail = currentActiveToolDetail;
+      }
+      currentActiveToolDetail = null;
+    }
     syncPresenceStatus();
   });
   pi.on("agent_end", () => {
@@ -1827,6 +1870,7 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
     }
     agentRunning = false;
     activeTools.clear();
+    currentActiveToolDetail = null;
     syncPresenceStatus();
   });
   pi.on("turn_start", (_event, ctx) => {
