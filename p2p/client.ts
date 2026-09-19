@@ -370,6 +370,7 @@ export class P2PIntercomClient extends EventEmitter {
       else if (value !== undefined) (this.registration as unknown as Record<string, unknown>)[key] = value;
     }
     this.registration.lastActivity = Date.now();
+    this.emit("presence_update", this.registration);
     for (const { peerId } of this.peers.values()) {
       void this.request(peerId, { type: "presence", scopeId: this.scopeId, from: this.registration }).catch(() => undefined);
     }

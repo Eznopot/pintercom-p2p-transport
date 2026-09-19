@@ -31,6 +31,7 @@ export class IntercomWebServer {
   private port: number;
   private host: string;
   private heartbeatTimer?: NodeJS.Timeout;
+  private syncTimer?: NodeJS.Timeout;
   private boundSessionListener?: () => void;
 
   constructor(options: IntercomWebServerOptions) {
@@ -90,6 +91,7 @@ export class IntercomWebServer {
         this.server = server;
         this.attachProviderListeners();
         this.startHeartbeat();
+        this.startSyncTimer();
         resolve(this.getServerInfo()!);
       });
     });
@@ -99,6 +101,10 @@ export class IntercomWebServer {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = undefined;
+    }
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+      this.syncTimer = undefined;
     }
 
     this.detachProviderListeners();
@@ -148,6 +154,15 @@ export class IntercomWebServer {
       off.call(this.provider, "presence_update", this.boundSessionListener);
     }
     this.boundSessionListener = undefined;
+  }
+
+  private startSyncTimer(): void {
+    this.syncTimer = setInterval(() => {
+      if (this.sseClients.size > 0) {
+        this.broadcastSessions().catch(() => {});
+      }
+    }, 2000);
+    this.syncTimer.unref?.();
   }
 
   private startHeartbeat(): void {
@@ -277,9 +292,10 @@ export class IntercomWebServer {
 
     if (pathname === "/api/events") {
       res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
       });
 
       this.sseClients.add(res);

@@ -1033,6 +1033,9 @@ export default function piIntercomExtension(pi: ExtensionAPI) {
       lastToolDetail: lastCompletedToolDetail,
       ...currentContextUsage(),
     });
+    if (webServer && webServer.isRunning()) {
+      webServer.broadcastSessions().catch(() => {});
+    }
   }
   function currentSessionTargetMatches(to: string, resolvedTo?: string | null, activeClient?: ActiveIntercomClient): boolean {
     const targets = new Set<string>();

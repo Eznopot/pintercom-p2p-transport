@@ -1124,8 +1124,28 @@ export function renderDashboardHtml(): string {
     }
 
     let eventSource = null;
+    let syncIntervalTimer = null;
+
+    function applyNewSessions(newSessions) {
+      if (!Array.isArray(newSessions)) return;
+      sessions = newSessions;
+      checkStatusChanges(sessions);
+      renderAgents();
+    }
+
+    function fetchAndSync() {
+      fetch('/api/sessions')
+        .then(res => res.json())
+        .then(data => {
+          applyNewSessions(data);
+        })
+        .catch(() => {});
+    }
+
     function connectSSE() {
-      if (eventSource) eventSource.close();
+      if (eventSource) {
+        try { eventSource.close(); } catch (e) {}
+      }
       eventSource = new EventSource('/api/events');
 
       eventSource.onopen = () => {
@@ -1138,26 +1158,35 @@ export function renderDashboardHtml(): string {
         document.getElementById('offline-bar').style.display = 'block';
         document.getElementById('live-dot').className = 'live-pulse reconnecting';
         document.getElementById('live-label').textContent = 'reconnexion...';
+        // En cas d'erreur SSE (ex: mise en veille iOS), le polling de secours prend le relais immédiat
+        fetchAndSync();
       };
 
       eventSource.addEventListener('sessions', (e) => {
         try {
-          sessions = JSON.parse(e.data);
-          checkStatusChanges(sessions);
-          renderAgents();
+          applyNewSessions(JSON.parse(e.data));
         } catch (err) {}
       });
+
+      eventSource.onmessage = (e) => {
+        try {
+          applyNewSessions(JSON.parse(e.data));
+        } catch (err) {}
+      };
     }
 
-    fetch('/api/sessions')
-      .then(res => res.json())
-      .then(data => {
-        sessions = data;
-        checkStatusChanges(sessions);
-        renderAgents();
-      })
-      .catch(() => {});
+    // Polling automatique de secours toutes les 2 secondes pour garantir un direct absolu
+    syncIntervalTimer = setInterval(fetchAndSync, 2000);
 
+    // Resynchronisation instantanée au réveil du smartphone
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        fetchAndSync();
+        connectSSE();
+      }
+    });
+
+    fetchAndSync();
     connectSSE();
     setInterval(renderAgents, 5000);
   </script>
