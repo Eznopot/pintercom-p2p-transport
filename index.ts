@@ -1,4 +1,6 @@
 import { defineTool, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { EvidenceStore, parseEvidenceSelection, type EvidenceSelection } from "./evidence.ts";
+import { registerEvidence } from "./evidence-extension.ts";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { randomUUID } from "crypto";
 import { hostname, type as osType } from "node:os";
@@ -41,17 +43,30 @@ import { openProjectPane, resolveTargetInCwd, waitForProjectSession, type Projec
 type ActiveIntercomClient = IntercomClient | P2PIntercomClient;
 type OutgoingMessageOptions = Parameters<IntercomClient["send"]>[1];
 
-function sendIntercomMessage(
+async function sendIntercomMessage(
   client: ActiveIntercomClient,
   to: string,
   options: OutgoingMessageOptions,
   paths: string[] | undefined,
   cwd: string,
   signal?: AbortSignal,
+  evidence?: EvidenceSelection,
 ) {
-  if (!paths?.length) return client.send(to, options);
+  if (evidence) {
+    if (!("sendTransfer" in client)) throw new Error("Evidence sharing requires the p2p transport (local lookup/read still work offline)");
+    if (paths?.length || options.attachments?.length) throw new Error("Share evidence separately from paths/inline attachments");
+    const store = new EvidenceStore(client.sessionId!);
+    const attachment: Attachment = { type: "context", name: "Retained tool evidence",
+      content: await store.card(evidence.id, evidence.offset, evidence.limit) };
+    const result = await client.sendTransfer(to, { ...options, paths: [store.directory(evidence.id)], cwd, signal, evidence });
+    return { ...result, historyAttachments: [attachment] };
+  }
+  if (!paths?.length) return { ...await client.send(to, options), historyAttachments: options.attachments };
   if (!("sendTransfer" in client)) throw new Error("File and folder transfer is only supported by the p2p transport");
-  return client.sendTransfer(to, { ...options, paths, cwd, signal });
+  const result = await client.sendTransfer(to, { ...options, paths, cwd, signal });
+  const attachment: Attachment = { type: "context", name: "Transferred files",
+    content: `Source paths (sender):\n${paths.map(path => `- ${resolvePath(cwd, path)}`).join("\n")}\n\n${result.storedAt ? `Saved on recipient under ${result.storedAt}` : "Recipient location was not recorded."}` };
+  return { ...result, historyAttachments: [...(options.attachments ?? []), attachment] };
 }
 
 const INTERCOM_TOOL_NAME = "intercom";
@@ -2173,6 +2188,7 @@ Usage:
   intercom({ action: "list-cwd", cwd: "/path" })  → List sessions in a specific directory
   intercom({ action: "send", to: "name-or-id", message: "..." })  → Send message
   intercom({ action: "send", to: "name-or-id", message: "...", paths: ["file-or-folder"] }) → Stream files/folders over P2P with instructions
+  intercom({ action: "send", to: "name-or-id", message: "Finding (interpretation)", evidenceId: "uuid", evidenceOffset: 1, evidenceLimit: 20 }) → Explicitly transfer retained tool evidence via P2P; recipient sees an exact excerpt and local reference, not the full output
   intercom({ action: "send", cwd: "/path", openProjectPaneIfMissing: true, message: "..." }) → Open a visible Herdr project pane when needed, then send
   intercom({ action: "ask", to: "name-or-id", message: "..." })   → Ask and wait for reply
   intercom({ action: "cancel", messageId: "..." })                 → Request cancellation of a sent message
@@ -2201,6 +2217,9 @@ Usage:
       paths: Type.Optional(Type.Array(Type.String(), {
         description: "Files or folders to stream with the message over the p2p transport. Relative paths resolve from the sending session cwd.",
       })),
+      evidenceId: Type.Optional(Type.String({ description: "Retained evidence UUID to explicitly share with send/ask/reply via P2P. Use intercom_evidence list/read first; inspect for secrets. message is a finding (max 2000 characters); cannot combine with paths/attachments." })),
+      evidenceOffset: Type.Optional(Type.Integer({ minimum: 1, description: "First line of exact evidence excerpt (default 1)" })),
+      evidenceLimit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "Excerpt line limit (default 20); also capped at 4000 characters" })),
       replyTo: Type.Optional(Type.String({
         description: "Message ID to reply to (for threading or responding to an 'ask')",
       })),
@@ -2239,6 +2258,8 @@ Usage:
       syncPresenceIdentity(ctx.sessionManager.getSessionId());
 
       const { action, to, message, attachments, paths, replyTo, messageId, supersedes, retryOf, cwd, openProjectPaneIfMissing, focus } = params;
+      const evidence = params.evidenceId ? parseEvidenceSelection({ id: params.evidenceId, offset: params.evidenceOffset ?? 1, limit: params.evidenceLimit ?? 20 }) : undefined;
+      if (evidence && !["send", "ask", "reply"].includes(action)) throw new Error("evidenceId requires send, ask, or reply");
 
       switch (action) {
         case "list": {
@@ -2416,7 +2437,7 @@ Usage:
               replyTo: effectiveReplyTo,
               supersedes,
               retryOf,
-            }, paths, ctx.cwd, _signal);
+            }, paths, ctx.cwd, _signal, evidence);
             if (!result.delivered) {
               const errorText = result.reason ?? "Session may not exist or has disconnected.";
               return {
@@ -2426,7 +2447,7 @@ Usage:
             }
             pi.appendEntry("intercom_sent", {
               to: targetDisplay,
-              message: { text: message, attachments, replyTo: effectiveReplyTo, supersedes, retryOf },
+              message: { text: message, attachments: result.historyAttachments, replyTo: effectiveReplyTo, supersedes, retryOf },
               messageId: result.id,
               timestamp: Date.now(),
             });
@@ -2530,7 +2551,7 @@ Usage:
               expectsReply: true,
               supersedes,
               retryOf,
-            }, paths, ctx.cwd, _signal);
+            }, paths, ctx.cwd, _signal, evidence);
 
             deliveryState = sendResult.delivery;
             if (!sendResult.delivered) {
@@ -2550,7 +2571,7 @@ Usage:
             }
             pi.appendEntry("intercom_sent", {
               to: targetDisplay,
-              message: { text: message, attachments, replyTo, supersedes, retryOf },
+              message: { text: message, attachments: sendResult.historyAttachments, replyTo, supersedes, retryOf },
               messageId: sendResult.id,
               timestamp: Date.now(),
             });
@@ -2605,7 +2626,7 @@ Usage:
               text: message,
               attachments,
               replyTo: target.message.id,
-            }, paths, ctx.cwd, _signal);
+            }, paths, ctx.cwd, _signal, evidence);
             if (!result.delivered) {
               const errorText = result.reason ?? "Session may not exist or has disconnected.";
               if (result.reason === "Session not found") {
@@ -2619,7 +2640,7 @@ Usage:
             dismissIncomingAsk(target.message.id);
             pi.appendEntry("intercom_sent", {
               to: target.from.name || target.from.id,
-              message: { text: message, attachments, replyTo: target.message.id },
+              message: { text: message, attachments: result.historyAttachments, replyTo: target.message.id },
               messageId: result.id,
               timestamp: Date.now(),
             });
@@ -2872,4 +2893,5 @@ Usage:
     description: "Open session intercom",
     handler: async (ctx) => openIntercomOverlay(ctx),
   });
+  if (config.enabled) registerEvidence(pi, ctx => resolveConfiguredIntercomSessionId(ctx.sessionManager.getSessionId(), config));
 }
