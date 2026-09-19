@@ -21,7 +21,7 @@ export function renderDashboardHtml(): string {
       --card-active: #181c24;
       --border: rgba(255, 255, 255, 0.07);
       --border-subtle: rgba(255, 255, 255, 0.04);
-      --border-focus: rgba(130, 170, 255, 0.35);
+      --border-focus: rgba(130, 170, 255, 0.4);
       
       --text-main: #f0f2f5;
       --text-muted: #848b99;
@@ -29,6 +29,7 @@ export function renderDashboardHtml(): string {
       
       --accent: #82aaff;
       --accent-dim: rgba(130, 170, 255, 0.12);
+      --accent-text: #0b1326;
       
       --dot-idle: #4ade80;
       --dot-thinking: #c084fc;
@@ -443,15 +444,22 @@ export function renderDashboardHtml(): string {
       background: var(--card);
       border: 1px solid var(--border);
       color: var(--text-main);
-      padding: 6px 10px;
+      padding: 7px 12px;
       border-radius: var(--radius-sm);
-      font-size: 0.72rem;
+      font-size: 0.74rem;
       font-family: inherit;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       transition: all 0.15s ease;
+    }
+
+    .action-btn.primary {
+      background: var(--accent-dim);
+      border-color: rgba(130, 170, 255, 0.35);
+      color: var(--accent);
+      font-weight: 500;
     }
 
     .action-btn:hover, .action-btn:active {
@@ -462,7 +470,7 @@ export function renderDashboardHtml(): string {
     .action-btn svg {
       width: 13px;
       height: 13px;
-      stroke: var(--text-muted);
+      stroke: currentColor;
       fill: none;
       stroke-width: 1.8;
       stroke-linecap: round;
@@ -500,6 +508,120 @@ export function renderDashboardHtml(): string {
       text-overflow: ellipsis;
     }
 
+    /* Modal / Bottom Sheet for Contact */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 2000;
+      padding: 0;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-dialog {
+      background: #16181f;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 16px 16px 0 0;
+      width: 100%;
+      max-width: 640px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+      animation: slideUp 0.2s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
+    .modal-textarea {
+      width: 100%;
+      height: 90px;
+      background: var(--terminal-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      outline: none;
+      resize: none;
+    }
+
+    .modal-textarea:focus {
+      border-color: var(--border-focus);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+
+    .btn-send {
+      background: var(--accent);
+      border: none;
+      color: var(--accent-text);
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     /* Empty state & Alerts */
     .empty-state {
       text-align: center;
@@ -532,7 +654,7 @@ export function renderDashboardHtml(): string {
       font-size: 0.75rem;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
       transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
-      z-index: 1000;
+      z-index: 3000;
       pointer-events: none;
     }
 
@@ -594,6 +716,21 @@ export function renderDashboardHtml(): string {
     <div class="empty-state">Recherche d'agents sur le réseau local...</div>
   </main>
 
+  <!-- Modal Contacter -->
+  <div class="modal-overlay" id="contact-modal" onclick="closeContactModal(event)">
+    <div class="modal-dialog" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <div class="modal-title" id="contact-title">Contacter l'agent</div>
+        <button class="modal-close" onclick="closeContactModal()">✕</button>
+      </div>
+      <textarea class="modal-textarea" id="contact-text" placeholder="Écrire un message ou une instruction pour cet agent..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeContactModal()">Annuler</button>
+        <button class="btn-send" id="btn-send-msg" onclick="sendIntercomMessage()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast">Copié dans le presse-papier</div>
 
   <script>
@@ -602,6 +739,7 @@ export function renderDashboardHtml(): string {
     let prevStatusMap = new Map();
     let expandedSessions = new Set();
     let notificationsEnabled = (typeof Notification !== 'undefined' && Notification.permission === 'granted');
+    let activeContactTarget = null;
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
@@ -611,13 +749,84 @@ export function renderDashboardHtml(): string {
     }
 
     function copyToClipboard(text, msg = "Copié dans le presse-papier") {
-      navigator.clipboard.writeText(text).then(() => {
-        showToast(msg);
-      }).catch(() => {});
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(msg);
+        }).catch(() => fallbackCopy(text, msg));
+      } else {
+        fallbackCopy(text, msg);
+      }
+    }
+
+    function fallbackCopy(text, msg) {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (ok) {
+          showToast(msg);
+        } else {
+          prompt("Copier le texte :", text);
+        }
+      } catch (e) {
+        prompt("Copier le texte :", text);
+      }
+    }
+
+    function openContactModal(targetId, targetName) {
+      activeContactTarget = { id: targetId, name: targetName };
+      document.getElementById('contact-title').textContent = "Contacter " + targetName;
+      document.getElementById('contact-text').value = "";
+      document.getElementById('btn-send-msg').disabled = false;
+      document.getElementById('btn-send-msg').textContent = "Envoyer";
+      document.getElementById('contact-modal').classList.add('open');
+      setTimeout(() => document.getElementById('contact-text').focus(), 150);
+    }
+
+    function closeContactModal(e) {
+      document.getElementById('contact-modal').classList.remove('open');
+      activeContactTarget = null;
+    }
+
+    async function sendIntercomMessage() {
+      if (!activeContactTarget) return;
+      const text = document.getElementById('contact-text').value.trim();
+      if (!text) return;
+
+      const btn = document.getElementById('btn-send-msg');
+      btn.disabled = true;
+      btn.textContent = "Envoi...";
+
+      try {
+        const res = await fetch('/api/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: activeContactTarget.id, message: text })
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          showToast("Message envoyé à " + activeContactTarget.name);
+          closeContactModal();
+        } else {
+          alert("Erreur d'envoi: " + (data.error || "Échec"));
+          btn.disabled = false;
+          btn.textContent = "Envoyer";
+        }
+      } catch (err) {
+        alert("Erreur réseau: " + err.message);
+        btn.disabled = false;
+        btn.textContent = "Envoyer";
+      }
     }
 
     function toggleExpand(id, event) {
-      if (event && (event.target.closest('button') || event.target.closest('.cmd-box'))) {
+      if (event && (event.target.closest('button') || event.target.closest('.cmd-box') || event.target.closest('.modal-overlay'))) {
         return;
       }
       if (expandedSessions.has(id)) {
@@ -876,9 +1085,13 @@ export function renderDashboardHtml(): string {
               \` : '')}
 
               <div class="drawer-actions">
-                <button class="action-btn" onclick="copyToClipboard('/intercom to:\${s.name || s.id}', 'Commande intercom copiée')">
+                <button class="action-btn primary" onclick="openContactModal('\${s.id}', '\${escapeHtml(name).replace(/'/g, "\\\\'")}')">
                   <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                  Contacter (/intercom)
+                  Contacter
+                </button>
+                <button class="action-btn" onclick="copyToClipboard('/intercom to:\${s.name || s.id}', 'Commande intercom copiée')">
+                  <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  Copier /intercom
                 </button>
                 <button class="action-btn" onclick="copyToClipboard('\${escapeHtml(cwd).replace(/'/g, "\\\\'")}', 'Chemin copié')">
                   <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>

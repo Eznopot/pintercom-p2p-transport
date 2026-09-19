@@ -5,6 +5,7 @@ import { renderDashboardHtml } from "./html.ts";
 
 export interface WebServerSessionProvider {
   listSessions(): Promise<SessionInfo[]>;
+  send?(to: string, options: { text: string }): Promise<any>;
   on?(event: string, listener: (...args: any[]) => void): void;
   off?(event: string, listener: (...args: any[]) => void): void;
   removeListener?(event: string, listener: (...args: any[]) => void): void;
@@ -189,11 +190,42 @@ export class IntercomWebServer {
 
     // CORS headers for local LAN exploration
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);
       res.end();
+      return;
+    }
+
+    if (pathname === "/api/send" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+      });
+      req.on("end", async () => {
+        try {
+          const payload = JSON.parse(body || "{}");
+          const { to, message } = payload;
+          if (!to || !message || typeof message !== "string") {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Missing 'to' or 'message'" }));
+            return;
+          }
+          if (!this.provider.send) {
+            res.writeHead(501, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Send not supported by active transport" }));
+            return;
+          }
+          const sendResult = await this.provider.send(to, { text: message.trim() });
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, result: sendResult }));
+        } catch (err: any) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message || "Failed to deliver message" }));
+        }
+      });
       return;
     }
 

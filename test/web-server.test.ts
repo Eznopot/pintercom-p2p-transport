@@ -6,9 +6,15 @@ import type { SessionInfo } from "../types.ts";
 
 class MockProvider extends EventEmitter implements WebServerSessionProvider {
   public sessions: SessionInfo[] = [];
+  public sentMessages: { to: string; text: string }[] = [];
 
   listSessions(): Promise<SessionInfo[]> {
     return Promise.resolve(this.sessions);
+  }
+
+  send(to: string, options: { text: string }): Promise<any> {
+    this.sentMessages.push({ to, text: options.text });
+    return Promise.resolve({ delivered: true, id: "msg-123" });
   }
 }
 
@@ -78,8 +84,21 @@ test("IntercomWebServer starts, serves endpoints, and stops cleanly", async () =
     assert.equal(sessionsJson[0].status, "thinking");
     assert.equal(sessionsJson[0].activeToolDetail, "npm run build");
     assert.equal(sessionsJson[0].lastToolDetail, "git status");
+
+    // 5. Test POST /api/send
+    const sendRes = await fetch(`${base}/api/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: "test-session-1", message: "Hello from phone" }),
+    });
+    assert.equal(sendRes.status, 200);
+    const sendJson = await sendRes.json();
+    assert.equal(sendJson.ok, true);
+    assert.equal(provider.sentMessages.length, 1);
+    assert.equal(provider.sentMessages[0]?.to, "test-session-1");
+    assert.equal(provider.sentMessages[0]?.text, "Hello from phone");
   } finally {
-    // 5. Test stop always runs cleanly
+    // 6. Test stop always runs cleanly
     await server.stop();
     assert.equal(server.isRunning(), false);
   }
